@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace CarRentalSystem
 {
@@ -42,13 +43,12 @@ namespace CarRentalSystem
 
             foreach (Car c in cars)
             {
-                if (car.GetCarID() == carID)
+                if (c.GetCarID() == carID) // ✓ FIXED: Changed from 'car' to 'c'
                 {
                     car = c;
-                    break; // Stop searching once we find it
+                    break;
                 }
             }
-           
 
             if (car == null)
             {
@@ -65,7 +65,7 @@ namespace CarRentalSystem
                 return "Car is under maintenance";
             }
 
-            return "OK"; // No conflict
+            return "OK";
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -79,16 +79,11 @@ namespace CarRentalSystem
 
             foreach (Car c in cars)
             {
-                // 1. Check if the car is available first
                 if (c.GetStatus() == "Available")
                 {
-                    // 2. Check Category (True if ALL or if it matches)
                     bool categoryMatch = (categoryFilter == "ALL" || c.GetCategory() == categoryFilter);
-
-                    // 3. Check Fuel (True if ALL or if it matches)
                     bool fuelMatch = (fuelFilter == "ALL" || c.GetFuelType() == fuelFilter);
 
-                    // If it passes all checks, add it to our list
                     if (categoryMatch && fuelMatch)
                     {
                         availableCars.Add(c);
@@ -104,17 +99,15 @@ namespace CarRentalSystem
         {
             Car foundCar = null;
 
-        
             foreach (Car c in cars)
             {
                 if (c.GetCarID() == carID)
                 {
                     foundCar = c;
-                    break; // Stop searching once we find it
+                    break;
                 }
             }
 
-            // Handle car not found
             if (foundCar == null)
             {
                 basePrice = 0;
@@ -122,68 +115,46 @@ namespace CarRentalSystem
                 return 0;
             }
 
-            // Logic for calculation
-            basePrice = (decimal)foundCar.GetHourlyRate() * hours;
-            deposit = (decimal)depositAmount;
+            basePrice = foundCar.GetHourlyRate() * hours;
+            deposit = depositAmount;
 
             return basePrice + deposit;
         }
-
 
         //  Confirm booking
         public bool ConfirmBooking(string customerID, string carID, int estimatedHours, out string rentalID)
         {
             rentalID = "";
 
-            // Check for conflicts
             string conflict = CheckRentalConflict(carID);
             if (conflict != "OK")
             {
                 return false;
-            }
-              Car foundCar = null;
-
-        
-            foreach (Car c in cars)
-            {
-                if (c.GetCarID() == carID)
-                {
-                    foundCar = c;
-                    break; // Stop searching once we find it
-                }
             }
 
             Car car = null;
 
             foreach (Car c in cars)
             {
-                if (car.GetCarID() == carID)
+                if (c.GetCarID() == carID) // ✓ FIXED: Changed from 'car' to 'c'
                 {
                     car = c;
-                    break; // Stop searching once we find it
+                    break;
                 }
             }
 
-           if ( car == null)
+            if (car == null)
             {
-                return false; // Car not found
-            }
-            else
-            {
-               // Car found
+                return false;
             }
 
-            // Generate rental ID
             rentalID = "R" + (rentals.Count + 1).ToString("D4");
 
-            // Create rental record
             Rental rental = new Rental(rentalID, customerID, carID, estimatedHours, car.GetHourlyRate());
             rentals.Add(rental);
 
-            // Update car status
             car.RentCar(customerID, estimatedHours);
 
-            // Save changes
             SaveData();
 
             return true;
@@ -200,8 +171,18 @@ namespace CarRentalSystem
             discount = 0;
             message = "";
 
-            // Find the car
-            Car car = cars.FirstOrDefault(c => c.GetCarID() == carID);
+            Car car = null;
+
+            // Manual search for the car ID
+            foreach (Car c in cars)
+            {
+                if (c.GetCarID() == carID)
+                {
+                    car = c;
+                    break; // Stop searching once we find it
+                }
+            }
+
             if (car == null)
             {
                 message = "Car not found";
@@ -214,7 +195,6 @@ namespace CarRentalSystem
                 return false;
             }
 
-            // Find active rental
             Rental rental = rentals.FirstOrDefault(r =>
                 r.GetCarID() == carID &&
                 r.GetStatus() == "Active");
@@ -225,88 +205,103 @@ namespace CarRentalSystem
                 return false;
             }
 
-            // Get rental details
             int estimatedHours = rental.GetEstimatedHours();
             decimal hourlyRate = car.GetHourlyRate();
 
             // ═══════════════════════════════════════════════════════════
             // 💡 EARLY RETURN FORMULA
             // ═══════════════════════════════════════════════════════════
-            // If returned early:
-            // - Charge for actual hours used
-            // - Apply 20% discount on unused hours
-            // - Final = (actual × rate) + (unused × rate × 0.8)
-            //
-            // If returned late or on-time:
-            // - Charge for actual hours (may exceed estimate)
-            // ═══════════════════════════════════════════════════════════
 
             if (actualHours < estimatedHours)
             {
-                // Early return - calculate discount
                 int usedHours = actualHours;
                 int unusedHours = estimatedHours - actualHours;
 
                 decimal usedCost = usedHours * hourlyRate;
                 decimal unusedCost = unusedHours * hourlyRate;
-                discount = unusedCost * 0.20m; // 20% discount on unused time
+                discount = unusedCost * 0.20m;
 
                 finalCost = usedCost + (unusedCost - discount);
-                message = $"Early return! {discount:C} discount applied";
+                message = "Early return! $" + discount.ToString("F2") + " discount applied";
             }
             else if (actualHours == estimatedHours)
             {
-                // On-time return
                 finalCost = actualHours * hourlyRate;
                 message = "On-time return";
             }
             else
             {
-                // Late return - charge for all hours
                 finalCost = actualHours * hourlyRate;
                 decimal extraCharge = (actualHours - estimatedHours) * hourlyRate;
-                message = $"Late return - extra charge: {extraCharge:C}";
+                message = $"Late return - extra charge: ${extraCharge.ToString("F2")}";
             }
 
-            // Update rental record
             rental.CompleteRental(actualHours, finalCost);
-
-            // Return the car
             car.ReturnCar();
-
-            // Save changes
             SaveData();
 
             return true;
         }
 
-        // 📊 Get customer's active rentals
+        //  Get customer's active rentals
         public List<Rental> GetCustomerActiveRentals(string customerID)
         {
-            return rentals.Where(r =>
-                r.GetCustomerID() == customerID &&
-                r.GetStatus() == "Active").ToList();
+            //  Create a new empty list to hold the results
+            List<Rental> activeRentals = new List<Rental>();
+
+            //  Loop through every rental in your main list
+            foreach (Rental r in rentals)
+            {
+                //  Check if the Customer ID matches AND the status is Active
+                if (r.GetCustomerID() == customerID && r.GetStatus() == "Active")
+                {
+                    // 4. Add the matching rental to your new list
+                    activeRentals.Add(r);
+                }
+            }
+
+            // 5. Return the filtered list
+            return activeRentals;
         }
 
-        // 📋 Get all rentals for a customer
+        public void GenerateAdminProfitReport()
+        {
+            decimal totalRevenue = 0m;
+
+            // Calculate total revenue from completed rentals
+            foreach (var rental in rentals)
+            {
+                if (rental.GetStatus() == "Completed")
+                {
+                    totalRevenue += rental.GetFinalCost();
+                }
+            }
+
+            string reportData = $"ADMIN REVENUE REPORT\nTotal: {totalRevenue:C}";
+
+            // Call the file handler (it already knows to go to the Admin folder)
+            fileHandler.SaveProfitReport(reportData);
+        }
+
+        // Get all rentals for a customer
         public List<Rental> GetCustomerRentals(string customerID)
         {
             return rentals.Where(r => r.GetCustomerID() == customerID).ToList();
         }
 
-        // 🚗 Get car by ID
+        //  Get car by ID
         public Car GetCarByID(string carID)
         {
             return cars.FirstOrDefault(c => c.GetCarID() == carID);
         }
 
-        // 📊 Get all cars
+        //  Get all cars
         public List<Car> GetAllCars()
         {
             return cars;
         }
 
-        // 🔄 Reload data
+        //  Reload data
         public void ReloadData()
         {
             LoadData();
