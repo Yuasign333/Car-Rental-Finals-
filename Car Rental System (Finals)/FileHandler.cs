@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -6,88 +6,77 @@ namespace CarRentalSystem
 {
     internal class FileHandler
     {
-        // 📁 Directory and file paths
+        //full path of the program: C:\Users\yuanm\source\repos\Car Rental System (Finals)\Car Rental System (Finals)\
+
+        // Directory paths
         private string baseDirectory;
         private string customerDirectory;
         private string agentDirectory;
+        private string adminDirectory;
+        private string adminReportsDirectory;
+
+        // File paths
         private string carsFilePath;
         private string customersFilePath;
         private string agentsFilePath;
         private string rentalsFilePath;
         private string maintenanceFilePath;
 
-        // 🔧 Constructor - sets up directory structure
         public FileHandler()
         {
-            // directories (folder creation)
+            // Initialize directories using Path.Combine
             baseDirectory = "CarRentalData";
-            customerDirectory = Path.Combine(baseDirectory, "Customers");
-            agentDirectory = Path.Combine(baseDirectory, "Agents");
+            customerDirectory = Path.Combine(baseDirectory, "Customers");     
+            adminDirectory = Path.Combine(baseDirectory, "Admin");
 
-            // files (file creation)
-            carsFilePath = Path.Combine(baseDirectory, "Cars.csv");
-            customersFilePath = Path.Combine(baseDirectory, "Customers.csv");
-            agentsFilePath = Path.Combine(baseDirectory, "Agents.csv");
-            rentalsFilePath = Path.Combine(baseDirectory, "Rentals.csv");
-            maintenanceFilePath = Path.Combine(baseDirectory, "Maintenance.csv");
+            // admin directory contains the following sub-directories
+            adminReportsDirectory = Path.Combine(adminDirectory, "Reports"); 
+            agentsFilePath = Path.Combine(adminDirectory, "Agents.csv");
+            carsFilePath = Path.Combine(adminDirectory, "Cars.csv");
+            customersFilePath = Path.Combine(adminDirectory, "Customers.csv");    
+            rentalsFilePath = Path.Combine(adminDirectory, "Rentals.csv");
+            maintenanceFilePath = Path.Combine(adminDirectory, "Maintenance.csv");
 
-            // methods to initialize directories and files
             InitializeDirectories();
             InitializeFiles();
-
         }
 
-        // 📂 Create necessary directories
         private void InitializeDirectories()
         {
             try
             {
-                if (!Directory.Exists(baseDirectory))
-                {
-                    Directory.CreateDirectory(baseDirectory);
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"✓ Created directory: {baseDirectory}");
-                    Console.ResetColor();
-                }
+                string[] directories = { baseDirectory, customerDirectory, agentDirectory, adminDirectory, adminReportsDirectory };
 
-                if (!Directory.Exists(customerDirectory))
+                foreach (string dir in directories)
                 {
-                    Directory.CreateDirectory(customerDirectory);
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"✓ Created directory: {customerDirectory}");
-                    Console.ResetColor();
-                }
-
-                if (!Directory.Exists(agentDirectory))
-                {
-                    Directory.CreateDirectory(agentDirectory);
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"✓ Created directory: {agentDirectory}");
-                    Console.ResetColor();
+                    if (!Directory.Exists(dir))
+                    {
+                        Directory.CreateDirectory(dir);
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine($"  ✓ Created directory: {dir}");
+                        Console.ResetColor();
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Error creating directories: {ex.Message}");
+                Console.WriteLine($"  ✗ Error creating directories: {ex.Message}");
                 Console.ResetColor();
             }
         }
 
-        // 📄 Initialize files with default data if they don't exist
         private void InitializeFiles()
         {
-            // Initialize Cars.csv with 10 default cars
             if (!File.Exists(carsFilePath))
             {
                 List<Car> defaultCars = GetDefaultCars();
                 SaveCars(defaultCars);
                 Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"✓ Initialized {carsFilePath} with 10 cars");
+                Console.WriteLine($"  ✓ Initialized {carsFilePath} with 10 cars");
                 Console.ResetColor();
             }
 
-            // Initialize Customers.csv with default customer
             if (!File.Exists(customersFilePath))
             {
                 List<Customer> defaultCustomers = new List<Customer>
@@ -96,11 +85,10 @@ namespace CarRentalSystem
                 };
                 SaveCustomers(defaultCustomers);
                 Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"✓ Initialized {customersFilePath} with default customer");
+                Console.WriteLine($"  ✓ Initialized {customersFilePath} with default customer");
                 Console.ResetColor();
             }
 
-            // Initialize Agents.csv with default admin
             if (!File.Exists(agentsFilePath))
             {
                 List<CompanyAgent> defaultAgents = new List<CompanyAgent>
@@ -109,11 +97,10 @@ namespace CarRentalSystem
                 };
                 SaveAgents(defaultAgents);
                 Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"✓ Initialized {agentsFilePath} with default admin");
+                Console.WriteLine($"  ✓ Initialized {agentsFilePath} with default admin");
                 Console.ResetColor();
             }
 
-            // Create empty files if they don't exist
             if (!File.Exists(rentalsFilePath))
                 File.Create(rentalsFilePath).Close();
 
@@ -121,7 +108,6 @@ namespace CarRentalSystem
                 File.Create(maintenanceFilePath).Close();
         }
 
-        // 🚗 Get 10 default cars
         private List<Car> GetDefaultCars()
         {
             return new List<Car>
@@ -140,14 +126,12 @@ namespace CarRentalSystem
         }
 
         // ═══════════════════════════════════════════════════════════
-        // 📖 READ OPERATIONS
+        // READ OPERATIONS
         // ═══════════════════════════════════════════════════════════
 
-        // 🚗 Read Cars
         public List<Car> ReadCars()
         {
             List<Car> cars = new List<Car>();
-
             if (!File.Exists(carsFilePath))
                 return cars;
 
@@ -168,18 +152,16 @@ namespace CarRentalSystem
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Error reading cars: {ex.Message}");
+                Console.WriteLine($"  ✗ Error reading cars: {ex.Message}");
                 Console.ResetColor();
             }
 
             return cars;
         }
 
-        // 👤 Read Customers
         public List<Customer> ReadCustomers()
         {
             List<Customer> customers = new List<Customer>();
-
             if (!File.Exists(customersFilePath))
                 return customers;
 
@@ -200,18 +182,16 @@ namespace CarRentalSystem
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Error reading customers: {ex.Message}");
+                Console.WriteLine($"  ✗ Error reading customers: {ex.Message}");
                 Console.ResetColor();
             }
 
             return customers;
         }
 
-        // 🏢 Read Agents
         public List<CompanyAgent> ReadAgents()
         {
             List<CompanyAgent> agents = new List<CompanyAgent>();
-
             if (!File.Exists(agentsFilePath))
                 return agents;
 
@@ -232,18 +212,16 @@ namespace CarRentalSystem
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Error reading agents: {ex.Message}");
+                Console.WriteLine($"  ✗ Error reading agents: {ex.Message}");
                 Console.ResetColor();
             }
 
             return agents;
         }
 
-        // 📋 Read Rentals
         public List<Rental> ReadRentals()
         {
             List<Rental> rentals = new List<Rental>();
-
             if (!File.Exists(rentalsFilePath))
                 return rentals;
 
@@ -264,18 +242,16 @@ namespace CarRentalSystem
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Error reading rentals: {ex.Message}");
+                Console.WriteLine($"  ✗ Error reading rentals: {ex.Message}");
                 Console.ResetColor();
             }
 
             return rentals;
         }
 
-        // 🔧 Read Maintenance Records
         public List<Maintenance> ReadMaintenance()
         {
             List<Maintenance> maintenanceList = new List<Maintenance>();
-
             if (!File.Exists(maintenanceFilePath))
                 return maintenanceList;
 
@@ -296,7 +272,7 @@ namespace CarRentalSystem
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Error reading maintenance: {ex.Message}");
+                Console.WriteLine($"  ✗ Error reading maintenance: {ex.Message}");
                 Console.ResetColor();
             }
 
@@ -304,10 +280,9 @@ namespace CarRentalSystem
         }
 
         // ═══════════════════════════════════════════════════════════
-        // 💾 WRITE OPERATIONS
+        // WRITE OPERATIONS
         // ═══════════════════════════════════════════════════════════
 
-        // 🚗 Save Cars
         public bool SaveCars(List<Car> cars)
         {
             try
@@ -324,13 +299,12 @@ namespace CarRentalSystem
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Error saving cars: {ex.Message}");
+                Console.WriteLine($"  ✗ Error saving cars: {ex.Message}");
                 Console.ResetColor();
                 return false;
             }
         }
 
-        // 👤 Save Customers
         public bool SaveCustomers(List<Customer> customers)
         {
             try
@@ -347,13 +321,12 @@ namespace CarRentalSystem
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Error saving customers: {ex.Message}");
+                Console.WriteLine($"  ✗ Error saving customers: {ex.Message}");
                 Console.ResetColor();
                 return false;
             }
         }
 
-        // 🏢 Save Agents
         public bool SaveAgents(List<CompanyAgent> agents)
         {
             try
@@ -370,13 +343,12 @@ namespace CarRentalSystem
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Error saving agents: {ex.Message}");
+                Console.WriteLine($"  ✗ Error saving agents: {ex.Message}");
                 Console.ResetColor();
                 return false;
             }
         }
 
-        // 📋 Save Rentals
         public bool SaveRentals(List<Rental> rentals)
         {
             try
@@ -393,13 +365,12 @@ namespace CarRentalSystem
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Error saving rentals: {ex.Message}");
+                Console.WriteLine($"  ✗ Error saving rentals: {ex.Message}");
                 Console.ResetColor();
                 return false;
             }
         }
 
-        // 🔧 Save Maintenance
         public bool SaveMaintenance(List<Maintenance> maintenanceList)
         {
             try
@@ -416,23 +387,21 @@ namespace CarRentalSystem
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Error saving maintenance: {ex.Message}");
+                Console.WriteLine($"  ✗ Error saving maintenance: {ex.Message}");
                 Console.ResetColor();
                 return false;
             }
         }
 
-        // 📄 Save customer receipt to their directory
         public bool SaveCustomerReceipt(string customerID, string receiptContent)
         {
             try
             {
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 string fileName = $"Receipt_{timestamp}.txt";
-                string filePath = Path.Combine(customerDirectory, customerID, fileName);
-
-                // Create customer subdirectory if it doesn't exist
                 string customerFolder = Path.Combine(customerDirectory, customerID);
+                string filePath = Path.Combine(customerFolder, fileName);
+
                 if (!Directory.Exists(customerFolder))
                 {
                     Directory.CreateDirectory(customerFolder);
@@ -444,17 +413,77 @@ namespace CarRentalSystem
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Error saving receipt: {ex.Message}");
+                Console.WriteLine($"  ✗ Error saving receipt: {ex.Message}");
                 Console.ResetColor();
                 return false;
             }
         }
 
-        // 📊 Get file paths (for display purposes)
+        public bool SaveMaintenanceReport(string agentID, string carID, string reportContent)
+        {
+            try
+            {
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Maintenance_{carID}_{timestamp}.txt";
+                string agentFolder = Path.Combine(agentDirectory, agentID);
+                string filePath = Path.Combine(agentFolder, fileName);
+
+                if (!Directory.Exists(agentFolder))
+                {
+                    Directory.CreateDirectory(agentFolder);
+                }
+
+                File.WriteAllText(filePath, reportContent);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"  ✗ Error saving maintenance report: {ex.Message}");
+                Console.ResetColor();
+                return false;
+            }
+        }
+
+        public bool SaveRevenueReport(string reportContent)
+        {
+            try
+            {
+                string timestamp = DateTime.Now.ToString("MMMyyyy");
+                string fileName = $"Revenue_{timestamp}.txt";
+                string filePath = Path.Combine(adminReportsDirectory, fileName);
+
+                if (!Directory.Exists(adminReportsDirectory))
+                {
+                    Directory.CreateDirectory(adminReportsDirectory);
+                }
+
+                File.WriteAllText(filePath, reportContent);
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"\n  ✓ Revenue report saved to: {filePath}");
+                Console.ResetColor();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"  ✗ Error saving revenue report: {ex.Message}");
+                Console.ResetColor();
+                return false;
+            }
+        }
+
         public string GetCarsFilePath() { return Path.GetFullPath(carsFilePath); }
         public string GetCustomersFilePath() { return Path.GetFullPath(customersFilePath); }
         public string GetAgentsFilePath() { return Path.GetFullPath(agentsFilePath); }
         public string GetRentalsFilePath() { return Path.GetFullPath(rentalsFilePath); }
         public string GetMaintenanceFilePath() { return Path.GetFullPath(maintenanceFilePath); }
+
+        internal void SaveProfitReport(string reportData)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
