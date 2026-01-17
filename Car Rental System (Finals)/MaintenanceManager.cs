@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ConstrainedExecution;
 
 namespace CarRentalSystem
 {
@@ -116,6 +117,41 @@ namespace CarRentalSystem
             return true;
         }
 
+        // Add new maintenance record with report generation
+
+        public bool AddMaintenance(string carID, string technicianName, string description, string currentAgentID, out string message)
+        {
+            message = "";
+
+            // Find the car
+            Car car = cars.FirstOrDefault(c => c.GetCarID() == carID);
+            if (car == null)
+            {
+                message = "Car not found";
+                return false;
+            }
+
+            string maintenanceID = "M" + (maintenanceRecords.Count + 1).ToString("D4");
+            Maintenance maintenance = new Maintenance(maintenanceID, carID, technicianName, description);
+            maintenanceRecords.Add(maintenance);
+            car.SetMaintenance();
+            SaveData();
+
+            // --- NEW: Generate and Save the Report ---
+            string report = $"MAINTENANCE LOG\n" +
+                            $"ID: {maintenanceID}\n" +
+                            $"Car ID: {carID}\n" +
+                            $"Technician: {technicianName}\n" +
+                            $"Date: {DateTime.Now}\n" +
+                            $"Description: {description}\n" +
+                            $"Logged By Agent: {currentAgentID}";
+
+            fileHandler.SaveMaintenanceReport(currentAgentID, carID, report);
+            // -----------------------------------------
+
+            message = "Maintenance record added and report saved.";
+            return true;
+        }
         //  Get all maintenance records
         public List<Maintenance> GetAllMaintenance()
         {
