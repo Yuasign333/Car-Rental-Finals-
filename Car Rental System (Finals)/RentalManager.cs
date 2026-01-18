@@ -1,49 +1,42 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace CarRentalSystem
 {
-    internal class RentalManager // Manages rental operations
+    internal class RentalManager
     {
         private List<Car> cars;
         private List<Rental> rentals;
         private FileHandler fileHandler;
         private decimal depositAmount = 50m;
 
-        //  Constructor
         public RentalManager(FileHandler fileHandler)
         {
             this.fileHandler = fileHandler;
             LoadData();
         }
 
-        //  Load data from files
         private void LoadData()
         {
             cars = fileHandler.ReadCars();
             rentals = fileHandler.ReadRentals();
         }
 
-        //  Save data to files
+        // ✅ FIX: This MUST save cars to update file locations
         private void SaveData()
         {
-            fileHandler.SaveCars(cars);
+            fileHandler.SaveCars(cars);        // ← THIS MOVES FILES BETWEEN FOLDERS
             fileHandler.SaveRentals(rentals);
         }
 
-        // ═══════════════════════════════════════════════════════════
-        //  CONFLICT ENGINE - Checks if rental is possible
-        // ═══════════════════════════════════════════════════════════
-
+        // Check if rental is possible
         public string CheckRentalConflict(string carID)
         {
             Car car = null;
 
             foreach (Car c in cars)
             {
-                if (c.GetCarID() == carID) // ✓ FIXED: Changed from 'car' to 'c'
+                if (c.GetCarID() == carID)
                 {
                     car = c;
                     break;
@@ -68,11 +61,7 @@ namespace CarRentalSystem
             return "OK";
         }
 
-        // ═══════════════════════════════════════════════════════════
-        //  RENTAL OPERATIONS
-        // ═══════════════════════════════════════════════════════════
-
-        //  Get available cars (optionally filtered)
+        // Get available cars (optionally filtered)
         public List<Car> GetAvailableCars(string categoryFilter = "ALL", string fuelFilter = "ALL")
         {
             List<Car> availableCars = new List<Car>();
@@ -94,7 +83,7 @@ namespace CarRentalSystem
             return availableCars;
         }
 
-        //  Calculate rental estimate
+        // Calculate rental estimate
         public decimal CalculateEstimate(string carID, int hours, out decimal basePrice, out decimal deposit)
         {
             Car foundCar = null;
@@ -121,8 +110,21 @@ namespace CarRentalSystem
             return basePrice + deposit;
         }
 
-        //  Confirm booking
-        public bool ConfirmBooking(string customerID, string carID, int estimatedHours, out string rentalID)
+        // Check if driver name already exists for this customer
+        public bool IsDriverNameTaken(string customerID, string driverName)
+        {
+            foreach (Rental rental in rentals)
+            {
+                if (rental.GetCustomerID() == customerID && rental.GetDriverName() == driverName)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // ✅ FIX: Confirm booking - NOW SAVES TO FILES
+        public bool ConfirmBooking(string customerID, string carID, string driverName, int estimatedHours, out string rentalID)
         {
             rentalID = "";
 
@@ -136,7 +138,7 @@ namespace CarRentalSystem
 
             foreach (Car c in cars)
             {
-                if (c.GetCarID() == carID) // ✓ FIXED: Changed from 'car' to 'c'
+                if (c.GetCarID() == carID)
                 {
                     car = c;
                     break;
@@ -150,36 +152,38 @@ namespace CarRentalSystem
 
             rentalID = "R" + (rentals.Count + 1).ToString("D4");
 
-            Rental rental = new Rental(rentalID, customerID, carID, estimatedHours, car.GetHourlyRate());
+            // Create rental record
+            Rental rental = new Rental(rentalID, customerID, carID, driverName, estimatedHours, car.GetHourlyRate());
             rentals.Add(rental);
 
+            // ✅ UPDATE CAR STATUS IN MEMORY
             car.RentCar(customerID, estimatedHours);
 
+            // ✅ CRITICAL FIX: SAVE TO FILES
+            // This will move the car from Cars_Available to Cars_Rented folder
             SaveData();
 
             return true;
         }
 
-        // ═══════════════════════════════════════════════════════════
-        //  RETURN OPERATIONS WITH EARLY RETURN FORMULA
-        // ═══════════════════════════════════════════════════════════
-
-        //  Process return with early return discount
+        // ✅ FIX: Process return - NOW PROPERLY UPDATES FILES
         public bool ProcessReturn(string carID, int actualHours, out decimal finalCost, out decimal discount, out string message)
         {
             finalCost = 0;
             discount = 0;
             message = "";
 
+            // ✅ RELOAD DATA TO GET LATEST STATE FROM FILES
+            LoadData();
+
             Car car = null;
 
-            // Manual search for the car ID
             foreach (Car c in cars)
             {
                 if (c.GetCarID() == carID)
                 {
                     car = c;
-                    break; // Stop searching once we find it
+                    break;
                 }
             }
 
@@ -195,9 +199,16 @@ namespace CarRentalSystem
                 return false;
             }
 
-            Rental rental = rentals.FirstOrDefault(r =>
-                r.GetCarID() == carID &&
-                r.GetStatus() == "Active");
+            Rental rental = null;
+
+            foreach (Rental r in rentals)
+            {
+                if (r.GetCarID() == carID && r.GetStatus() == "Active")
+                {
+                    rental = r;
+                    break;
+                }
+            }
 
             if (rental == null)
             {
@@ -208,10 +219,7 @@ namespace CarRentalSystem
             int estimatedHours = rental.GetEstimatedHours();
             decimal hourlyRate = car.GetHourlyRate();
 
-            // ═══════════════════════════════════════════════════════════
-            // 💡 EARLY RETURN FORMULA
-            // ═══════════════════════════════════════════════════════════
-
+            // EARLY RETURN FORMULA
             if (actualHours < estimatedHours)
             {
                 int usedHours = actualHours;
@@ -233,75 +241,74 @@ namespace CarRentalSystem
             {
                 finalCost = actualHours * hourlyRate;
                 decimal extraCharge = (actualHours - estimatedHours) * hourlyRate;
-                message = $"Late return - extra charge: ${extraCharge.ToString("F2")}";
+                message = "Late return - extra charge: $" + extraCharge.ToString("F2");
             }
 
+            //  UPDATE RENTAL RECORD
             rental.CompleteRental(actualHours, finalCost);
+
+            //  UPDATE CAR STATUS IN MEMORY
             car.ReturnCar();
+
+    
+            // This will move the car from Cars_Rented BACK to Cars_Available folder
             SaveData();
 
             return true;
         }
 
-        //  Get customer's active rentals
+        // Get customer's active rentals
         public List<Rental> GetCustomerActiveRentals(string customerID)
         {
-            //  Create a new empty list to hold the results
             List<Rental> activeRentals = new List<Rental>();
 
-            //  Loop through every rental in your main list
             foreach (Rental r in rentals)
             {
-                //  Check if the Customer ID matches AND the status is Active
                 if (r.GetCustomerID() == customerID && r.GetStatus() == "Active")
                 {
-                    // 4. Add the matching rental to your new list
                     activeRentals.Add(r);
                 }
             }
 
-            // 5. Return the filtered list
             return activeRentals;
-        }
-
-        public void GenerateAdminProfitReport()
-        {
-            decimal totalRevenue = 0m;
-
-            // Calculate total revenue from completed rentals
-            foreach (var rental in rentals)
-            {
-                if (rental.GetStatus() == "Completed")
-                {
-                    totalRevenue += rental.GetFinalCost();
-                }
-            }
-
-            string reportData = $"ADMIN REVENUE REPORT\nTotal: {totalRevenue:C}";
-
-            // Call the file handler (it already knows to go to the Admin folder)
-            fileHandler.SaveProfitReport(reportData);
         }
 
         // Get all rentals for a customer
         public List<Rental> GetCustomerRentals(string customerID)
         {
-            return rentals.Where(r => r.GetCustomerID() == customerID).ToList();
+            List<Rental> customerRentals = new List<Rental>();
+
+            foreach (Rental r in rentals)
+            {
+                if (r.GetCustomerID() == customerID)
+                {
+                    customerRentals.Add(r);
+                }
+            }
+
+            return customerRentals;
         }
 
-        //  Get car by ID
+        // Get car by ID
         public Car GetCarByID(string carID)
         {
-            return cars.FirstOrDefault(c => c.GetCarID() == carID);
+            foreach (Car c in cars)
+            {
+                if (c.GetCarID() == carID)
+                {
+                    return c;
+                }
+            }
+            return null;
         }
 
-        //  Get all cars
+        // Get all cars
         public List<Car> GetAllCars()
         {
             return cars;
         }
 
-        //  Reload data
+        //  FIX: Reload data from files
         public void ReloadData()
         {
             LoadData();
