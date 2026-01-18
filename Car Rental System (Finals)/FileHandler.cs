@@ -6,36 +6,44 @@ namespace CarRentalSystem
 {
     internal class FileHandler
     {
-        //full path of the program: C:\Users\yuanm\source\repos\Car Rental System (Finals)\Car Rental System (Finals)\
+
 
         // Directory paths
         private string baseDirectory;
         private string customerDirectory;
-        private string agentDirectory;
         private string adminDirectory;
-        private string adminReportsDirectory;
+
+        // Admin subdirectories
+        private string carsAvailableDirectory;
+        private string carsRentedDirectory;
+        private string rentalsActiveDirectory;
+        private string rentalsCompletedDirectory;
+        private string maintenanceProgressDirectory;
+        private string maintenanceCompletedDirectory;
+        private string revenueDirectory;
 
         // File paths
-        private string carsFilePath;
         private string customersFilePath;
         private string agentsFilePath;
-        private string rentalsFilePath;
-        private string maintenanceFilePath;
 
         public FileHandler()
         {
-            // Initialize directories using Path.Combine
             baseDirectory = "CarRentalData";
-            customerDirectory = Path.Combine(baseDirectory, "Customers");     
+            customerDirectory = Path.Combine(baseDirectory, "Customers");
             adminDirectory = Path.Combine(baseDirectory, "Admin");
 
-            // admin directory contains the following sub-directories
-            adminReportsDirectory = Path.Combine(adminDirectory, "Reports"); 
+            // Admin subdirectories
+            carsAvailableDirectory = Path.Combine(adminDirectory, "Cars_Available");
+            carsRentedDirectory = Path.Combine(adminDirectory, "Cars_Rented");
+            rentalsActiveDirectory = Path.Combine(adminDirectory, "Rentals_Active");
+            rentalsCompletedDirectory = Path.Combine(adminDirectory, "Rentals_Completed");
+            maintenanceProgressDirectory = Path.Combine(adminDirectory, "Maintenance_InProgress");
+            maintenanceCompletedDirectory = Path.Combine(adminDirectory, "Maintenance_Completed");
+            revenueDirectory = Path.Combine(adminDirectory, "Revenue");
+
+            // Simple file paths
+            customersFilePath = Path.Combine(adminDirectory, "Customers.csv");
             agentsFilePath = Path.Combine(adminDirectory, "Agents.csv");
-            carsFilePath = Path.Combine(adminDirectory, "Cars.csv");
-            customersFilePath = Path.Combine(adminDirectory, "Customers.csv");    
-            rentalsFilePath = Path.Combine(adminDirectory, "Rentals.csv");
-            maintenanceFilePath = Path.Combine(adminDirectory, "Maintenance.csv");
 
             InitializeDirectories();
             InitializeFiles();
@@ -45,7 +53,18 @@ namespace CarRentalSystem
         {
             try
             {
-                string[] directories = { baseDirectory, customerDirectory, agentDirectory, adminDirectory, adminReportsDirectory };
+                string[] directories = {
+                    baseDirectory,
+                    customerDirectory,
+                    adminDirectory,
+                    carsAvailableDirectory,
+                    carsRentedDirectory,
+                    rentalsActiveDirectory,
+                    rentalsCompletedDirectory,
+                    maintenanceProgressDirectory,
+                    maintenanceCompletedDirectory,
+                    revenueDirectory
+                };
 
                 foreach (string dir in directories)
                 {
@@ -68,44 +87,31 @@ namespace CarRentalSystem
 
         private void InitializeFiles()
         {
-            if (!File.Exists(carsFilePath))
+            //  Check if we have ANY cars at all (in either Available or Rented folders)
+            // We call ReadCars() because it already looks in both places.
+            List<Car> existingCars = ReadCars();
+
+            if (existingCars.Count == 0)
             {
                 List<Car> defaultCars = GetDefaultCars();
-                SaveCars(defaultCars);
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"  ✓ Initialized {carsFilePath} with 10 cars");
-                Console.ResetColor();
+                foreach (Car car in defaultCars)
+                {
+                    string filePath = Path.Combine(carsAvailableDirectory, car.GetCarID() + ".csv");
+                    // Only write if the system is truly empty
+                    File.WriteAllText(filePath, car.ToCsvString());
+                }
             }
 
+            // Do the same for Customers and Agents (Check if file exists)
             if (!File.Exists(customersFilePath))
             {
-                List<Customer> defaultCustomers = new List<Customer>
-                {
-                    new Customer("C001", "John Doe", "customer123")
-                };
-                SaveCustomers(defaultCustomers);
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"  ✓ Initialized {customersFilePath} with default customer");
-                Console.ResetColor();
+                SaveCustomers(new List<Customer> { new Customer("C001", "John Doe", "customer123") });
             }
 
             if (!File.Exists(agentsFilePath))
             {
-                List<CompanyAgent> defaultAgents = new List<CompanyAgent>
-                {
-                    new CompanyAgent("A001", "Admin", "admin123")
-                };
-                SaveAgents(defaultAgents);
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"  ✓ Initialized {agentsFilePath} with default admin");
-                Console.ResetColor();
+                SaveAgents(new List<CompanyAgent> { new CompanyAgent("A001", "Admin", "admin123") });
             }
-
-            if (!File.Exists(rentalsFilePath))
-                File.Create(rentalsFilePath).Close();
-
-            if (!File.Exists(maintenanceFilePath))
-                File.Create(maintenanceFilePath).Close();
         }
 
         private List<Car> GetDefaultCars()
@@ -125,23 +131,24 @@ namespace CarRentalSystem
             };
         }
 
-        // ═══════════════════════════════════════════════════════════
-        // READ OPERATIONS
-        // ═══════════════════════════════════════════════════════════
-
+        // READ CARS
         public List<Car> ReadCars()
         {
             List<Car> cars = new List<Car>();
-            if (!File.Exists(carsFilePath))
-                return cars;
+            string[] folders = { carsAvailableDirectory, carsRentedDirectory, maintenanceProgressDirectory };
 
-            try
+            foreach (string path in folders)
             {
-                using (StreamReader sr = new StreamReader(carsFilePath))
+                if (Directory.Exists(path))
                 {
-                    string line;
-                    while ((line = sr.ReadLine()) != null)
+                    foreach (string file in Directory.GetFiles(path, "*.csv"))
                     {
+                        //  Check the filename. If it starts with 'M', it's NOT a car.
+                        string fileName = Path.GetFileName(file);
+                        if (fileName.StartsWith("M", StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        string line = File.ReadAllText(file);
                         if (Car.TryParseCsv(line, out Car car))
                         {
                             cars.Add(car);
@@ -149,16 +156,8 @@ namespace CarRentalSystem
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"  ✗ Error reading cars: {ex.Message}");
-                Console.ResetColor();
-            }
-
             return cars;
         }
-
         public List<Customer> ReadCustomers()
         {
             List<Customer> customers = new List<Customer>();
@@ -167,15 +166,12 @@ namespace CarRentalSystem
 
             try
             {
-                using (StreamReader sr = new StreamReader(customersFilePath))
+                string[] lines = File.ReadAllLines(customersFilePath);
+                foreach (string line in lines)
                 {
-                    string line;
-                    while ((line = sr.ReadLine()) != null)
+                    if (Customer.TryParseCsv(line, out Customer customer))
                     {
-                        if (Customer.TryParseCsv(line, out Customer customer))
-                        {
-                            customers.Add(customer);
-                        }
+                        customers.Add(customer);
                     }
                 }
             }
@@ -197,15 +193,12 @@ namespace CarRentalSystem
 
             try
             {
-                using (StreamReader sr = new StreamReader(agentsFilePath))
+                string[] lines = File.ReadAllLines(agentsFilePath);
+                foreach (string line in lines)
                 {
-                    string line;
-                    while ((line = sr.ReadLine()) != null)
+                    if (CompanyAgent.TryParseCsv(line, out CompanyAgent agent))
                     {
-                        if (CompanyAgent.TryParseCsv(line, out CompanyAgent agent))
-                        {
-                            agents.Add(agent);
-                        }
+                        agents.Add(agent);
                     }
                 }
             }
@@ -222,28 +215,33 @@ namespace CarRentalSystem
         public List<Rental> ReadRentals()
         {
             List<Rental> rentals = new List<Rental>();
-            if (!File.Exists(rentalsFilePath))
-                return rentals;
 
-            try
+            // Read Active Rentals
+            if (Directory.Exists(rentalsActiveDirectory))
             {
-                using (StreamReader sr = new StreamReader(rentalsFilePath))
+                string[] files = Directory.GetFiles(rentalsActiveDirectory, "*.csv");
+                foreach (string file in files)
                 {
-                    string line;
-                    while ((line = sr.ReadLine()) != null)
+                    string line = File.ReadAllText(file);
+                    if (Rental.TryParseCsv(line, out Rental rental))
                     {
-                        if (Rental.TryParseCsv(line, out Rental rental))
-                        {
-                            rentals.Add(rental);
-                        }
+                        rentals.Add(rental);
                     }
                 }
             }
-            catch (Exception ex)
+
+            // Read Completed Rentals
+            if (Directory.Exists(rentalsCompletedDirectory))
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"  ✗ Error reading rentals: {ex.Message}");
-                Console.ResetColor();
+                string[] files = Directory.GetFiles(rentalsCompletedDirectory, "*.csv");
+                foreach (string file in files)
+                {
+                    string line = File.ReadAllText(file);
+                    if (Rental.TryParseCsv(line, out Rental rental))
+                    {
+                        rentals.Add(rental);
+                    }
+                }
             }
 
             return rentals;
@@ -252,55 +250,85 @@ namespace CarRentalSystem
         public List<Maintenance> ReadMaintenance()
         {
             List<Maintenance> maintenanceList = new List<Maintenance>();
-            if (!File.Exists(maintenanceFilePath))
-                return maintenanceList;
 
-            try
+            // Read In Progress
+            if (Directory.Exists(maintenanceProgressDirectory))
             {
-                using (StreamReader sr = new StreamReader(maintenanceFilePath))
+                string[] files = Directory.GetFiles(maintenanceProgressDirectory, "*.csv");
+                foreach (string file in files)
                 {
-                    string line;
-                    while ((line = sr.ReadLine()) != null)
+                    string line = File.ReadAllText(file);
+                    if (Maintenance.TryParseCsv(line, out Maintenance maintenance))
                     {
-                        if (Maintenance.TryParseCsv(line, out Maintenance maintenance))
-                        {
-                            maintenanceList.Add(maintenance);
-                        }
+                        maintenanceList.Add(maintenance);
                     }
                 }
             }
-            catch (Exception ex)
+
+            // Read Completed
+            if (Directory.Exists(maintenanceCompletedDirectory))
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"  ✗ Error reading maintenance: {ex.Message}");
-                Console.ResetColor();
+                string[] files = Directory.GetFiles(maintenanceCompletedDirectory, "*.csv");
+                foreach (string file in files)
+                {
+                    string line = File.ReadAllText(file);
+                    if (Maintenance.TryParseCsv(line, out Maintenance maintenance))
+                    {
+                        maintenanceList.Add(maintenance);
+                    }
+                }
             }
 
             return maintenanceList;
         }
 
-        // ═══════════════════════════════════════════════════════════
-        // WRITE OPERATIONS
-        // ═══════════════════════════════════════════════════════════
-
+        // SAVE OPERATIONS
         public bool SaveCars(List<Car> cars)
         {
             try
             {
-                using (StreamWriter sw = new StreamWriter(carsFilePath, false))
+                // 1. CLEAR: Delete all existing files in car-related folders 
+                // to ensure no "ghost" copies remain in the wrong place.
+                string[] folders = { carsAvailableDirectory, carsRentedDirectory, maintenanceProgressDirectory };
+
+                foreach (string folder in folders)
                 {
-                    foreach (Car car in cars)
+                    if (Directory.Exists(folder))
                     {
-                        sw.WriteLine(car.ToCsvString());
+                        string[] files = Directory.GetFiles(folder, "*.csv");
+                        foreach (string file in files)
+                        {
+                            File.Delete(file);
+                        }
                     }
+                }
+
+                // 2. ROUTE: Save each car to the specific folder it belongs in NOW
+                foreach (Car car in cars)
+                {
+                    string fileName = car.GetCarID() + ".csv";
+                    string path;
+
+                    // Simple if-else logic for folder selection
+                    if (car.GetStatus() == "Under Maintenance")
+                    {
+                        path = Path.Combine(maintenanceProgressDirectory, fileName);
+                    }
+                    else if (car.GetStatus() == "Rented")
+                    {
+                        path = Path.Combine(carsRentedDirectory, fileName);
+                    }
+                    else
+                    {
+                        path = Path.Combine(carsAvailableDirectory, fileName);
+                    }
+
+                    File.WriteAllText(path, car.ToCsvString());
                 }
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"  ✗ Error saving cars: {ex.Message}");
-                Console.ResetColor();
                 return false;
             }
         }
@@ -309,13 +337,12 @@ namespace CarRentalSystem
         {
             try
             {
-                using (StreamWriter sw = new StreamWriter(customersFilePath, false))
+                List<string> lines = new List<string>();
+                foreach (Customer customer in customers)
                 {
-                    foreach (Customer customer in customers)
-                    {
-                        sw.WriteLine(customer.ToCsvString());
-                    }
+                    lines.Add(customer.ToCsvString());
                 }
+                File.WriteAllLines(customersFilePath, lines);
                 return true;
             }
             catch (Exception ex)
@@ -331,13 +358,12 @@ namespace CarRentalSystem
         {
             try
             {
-                using (StreamWriter sw = new StreamWriter(agentsFilePath, false))
+                List<string> lines = new List<string>();
+                foreach (CompanyAgent agent in agents)
                 {
-                    foreach (CompanyAgent agent in agents)
-                    {
-                        sw.WriteLine(agent.ToCsvString());
-                    }
+                    lines.Add(agent.ToCsvString());
                 }
+                File.WriteAllLines(agentsFilePath, lines);
                 return true;
             }
             catch (Exception ex)
@@ -353,12 +379,33 @@ namespace CarRentalSystem
         {
             try
             {
-                using (StreamWriter sw = new StreamWriter(rentalsFilePath, false))
+                foreach (Rental rental in rentals)
                 {
-                    foreach (Rental rental in rentals)
+                    string fileName = rental.GetRentalID() + ".csv";
+                    string filePath = "";
+
+                    if (rental.GetStatus() == "Active")
                     {
-                        sw.WriteLine(rental.ToCsvString());
+                        filePath = Path.Combine(rentalsActiveDirectory, fileName);
+                        // Delete from completed if exists
+                        string completedPath = Path.Combine(rentalsCompletedDirectory, fileName);
+                        if (File.Exists(completedPath))
+                        {
+                            File.Delete(completedPath);
+                        }
                     }
+                    else
+                    {
+                        filePath = Path.Combine(rentalsCompletedDirectory, fileName);
+                        // Delete from active if exists
+                        string activePath = Path.Combine(rentalsActiveDirectory, fileName);
+                        if (File.Exists(activePath))
+                        {
+                            File.Delete(activePath);
+                        }
+                    }
+
+                    File.WriteAllText(filePath, rental.ToCsvString());
                 }
                 return true;
             }
@@ -375,20 +422,37 @@ namespace CarRentalSystem
         {
             try
             {
-                using (StreamWriter sw = new StreamWriter(maintenanceFilePath, false))
+                foreach (Maintenance m in maintenanceList)
                 {
-                    foreach (Maintenance maintenance in maintenanceList)
+                    // Use the Maintenance ID for the filename (M0001.csv)
+                    string fileName = m.GetMaintenanceID() + ".csv";
+
+                    // Define both potential paths
+                    string inProgressPath = Path.Combine(maintenanceProgressDirectory, fileName);
+                    string completedPath = Path.Combine(maintenanceCompletedDirectory, fileName);
+
+                    if (m.GetStatus() == "In Progress")
                     {
-                        sw.WriteLine(maintenance.ToCsvString());
+                        // Save to 'In Progress' folder
+                        File.WriteAllText(inProgressPath, m.ToCsvString());
+
+                        // Remove from 'Completed' if it accidentally exists there
+                        if (File.Exists(completedPath)) File.Delete(completedPath);
+                    }
+                    else if (m.GetStatus() == "Completed")
+                    {
+                        // Save to 'Completed' folder
+                        File.WriteAllText(completedPath, m.ToCsvString());
+
+                        // REMOVE FROM 'IN PROGRESS' folder (This is the move!)
+                        if (File.Exists(inProgressPath)) File.Delete(inProgressPath);
                     }
                 }
                 return true;
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"  ✗ Error saving maintenance: {ex.Message}");
-                Console.ResetColor();
+                Console.WriteLine($"Error Syncing Maintenance Files: {ex.Message}");
                 return false;
             }
         }
@@ -398,7 +462,7 @@ namespace CarRentalSystem
             try
             {
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string fileName = $"Receipt_{timestamp}.txt";
+                string fileName = "Receipt_" + timestamp + ".txt";
                 string customerFolder = Path.Combine(customerDirectory, customerID);
                 string filePath = Path.Combine(customerFolder, fileName);
 
@@ -419,49 +483,18 @@ namespace CarRentalSystem
             }
         }
 
-        public bool SaveMaintenanceReport(string agentID, string carID, string reportContent)
-        {
-            try
-            {
-                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string fileName = $"Maintenance_{carID}_{timestamp}.txt";
-                string agentFolder = Path.Combine(agentDirectory, agentID);
-                string filePath = Path.Combine(agentFolder, fileName);
-
-                if (!Directory.Exists(agentFolder))
-                {
-                    Directory.CreateDirectory(agentFolder);
-                }
-
-                File.WriteAllText(filePath, reportContent);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"  ✗ Error saving maintenance report: {ex.Message}");
-                Console.ResetColor();
-                return false;
-            }
-        }
-
         public bool SaveRevenueReport(string reportContent)
         {
             try
             {
-                string timestamp = DateTime.Now.ToString("MMMyyyy");
-                string fileName = $"Revenue_{timestamp}.txt";
-                string filePath = Path.Combine(adminReportsDirectory, fileName);
-
-                if (!Directory.Exists(adminReportsDirectory))
-                {
-                    Directory.CreateDirectory(adminReportsDirectory);
-                }
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = "Revenue_" + timestamp + ".txt";
+                string filePath = Path.Combine(revenueDirectory, fileName);
 
                 File.WriteAllText(filePath, reportContent);
 
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"\n  ✓ Revenue report saved to: {filePath}");
+                Console.WriteLine($"\n  ✓ Revenue report saved!");
                 Console.ResetColor();
 
                 return true;
@@ -473,17 +506,6 @@ namespace CarRentalSystem
                 Console.ResetColor();
                 return false;
             }
-        }
-
-        public string GetCarsFilePath() { return Path.GetFullPath(carsFilePath); }
-        public string GetCustomersFilePath() { return Path.GetFullPath(customersFilePath); }
-        public string GetAgentsFilePath() { return Path.GetFullPath(agentsFilePath); }
-        public string GetRentalsFilePath() { return Path.GetFullPath(rentalsFilePath); }
-        public string GetMaintenanceFilePath() { return Path.GetFullPath(maintenanceFilePath); }
-
-        internal void SaveProfitReport(string reportData)
-        {
-            throw new NotImplementedException();
         }
     }
 }
