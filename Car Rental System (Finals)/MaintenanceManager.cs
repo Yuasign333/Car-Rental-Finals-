@@ -1,79 +1,75 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.ConstrainedExecution;
 
 namespace CarRentalSystem
 {
-    internal class MaintenanceManager // Manages maintenance operations for cars
+    internal class MaintenanceManager
     {
         private List<Car> cars;
         private List<Maintenance> maintenanceRecords;
         private FileHandler fileHandler;
 
-        //  Constructor
         public MaintenanceManager(FileHandler fileHandler)
         {
             this.fileHandler = fileHandler;
             LoadData();
         }
 
-        //  Load data from files
         private void LoadData()
         {
             cars = fileHandler.ReadCars();
             maintenanceRecords = fileHandler.ReadMaintenance();
         }
 
-        //  Save data to files
         private void SaveData()
         {
+            // This handles moving the Car file (C001.csv)
             fileHandler.SaveCars(cars);
+
+            // This handles moving the Maintenance Record file (M0001.csv)
             fileHandler.SaveMaintenance(maintenanceRecords);
         }
 
-        // ═══════════════════════════════════════════════════════════
-        //  MAINTENANCE OPERATIONS
-        // ═══════════════════════════════════════════════════════════
-
-        //  Add new maintenance record
+        // Add new maintenance record
         public bool AddMaintenance(string carID, string technicianName, string description, out string message)
         {
             message = "";
 
-            // Find the car
-            Car car = cars.FirstOrDefault(c => c.GetCarID() == carID);
+            Car car = null;
+            foreach (Car c in cars)
+            {
+                if (c.GetCarID() == carID)
+                {
+                    car = c;
+                    break;
+                }
+            }
+
             if (car == null)
             {
                 message = "Car not found";
                 return false;
             }
 
-            // Check if car is rented
             if (car.GetStatus() == "Rented")
             {
                 message = "Cannot perform maintenance on rented car";
                 return false;
             }
 
-            // Check if already under maintenance
             if (car.GetStatus() == "Under Maintenance")
             {
                 message = "Car is already under maintenance";
                 return false;
             }
 
-            // Generate maintenance ID
             string maintenanceID = "M" + (maintenanceRecords.Count + 1).ToString("D4");
 
-            // Create maintenance record
             Maintenance maintenance = new Maintenance(maintenanceID, carID, technicianName, description);
             maintenanceRecords.Add(maintenance);
 
-            // Update car status
             car.SetMaintenance();
 
-            // Save changes
             SaveData();
 
             message = "Maintenance record added successfully";
@@ -85,10 +81,15 @@ namespace CarRentalSystem
         {
             message = "";
 
-            // Find the maintenance record
-            Maintenance maintenance = maintenanceRecords.FirstOrDefault(m =>
-                m.GetMaintenanceID() == maintenanceID &&
-                m.GetStatus() == "In Progress");
+            Maintenance maintenance = null;
+            foreach (Maintenance m in maintenanceRecords)
+            {
+                if (m.GetMaintenanceID() == maintenanceID && m.GetStatus() == "In Progress")
+                {
+                    maintenance = m;
+                    break;
+                }
+            }
 
             if (maintenance == null)
             {
@@ -96,81 +97,70 @@ namespace CarRentalSystem
                 return false;
             }
 
-            // Find the car
-            Car car = cars.FirstOrDefault(c => c.GetCarID() == maintenance.GetCarID());
+            Car car = null;
+            foreach (Car c in cars)
+            {
+                if (c.GetCarID() == maintenance.GetCarID())
+                {
+                    car = c;
+                    break;
+                }
+            }
+
             if (car == null)
             {
                 message = "Car not found";
                 return false;
             }
 
-            // Complete maintenance
             maintenance.CompleteMaintenance();
-
-            // Update car status
             car.ClearMaintenance();
 
-            // Save changes
             SaveData();
 
             message = "Maintenance completed successfully";
             return true;
         }
 
-        // Add new maintenance record with report generation
-
-        public bool AddMaintenance(string carID, string technicianName, string description, string currentAgentID, out string message)
-        {
-            message = "";
-
-            // Find the car
-            Car car = cars.FirstOrDefault(c => c.GetCarID() == carID);
-            if (car == null)
-            {
-                message = "Car not found";
-                return false;
-            }
-
-            string maintenanceID = "M" + (maintenanceRecords.Count + 1).ToString("D4");
-            Maintenance maintenance = new Maintenance(maintenanceID, carID, technicianName, description);
-            maintenanceRecords.Add(maintenance);
-            car.SetMaintenance();
-            SaveData();
-
-            // --- NEW: Generate and Save the Report ---
-            string report = $"MAINTENANCE LOG\n" +
-                            $"ID: {maintenanceID}\n" +
-                            $"Car ID: {carID}\n" +
-                            $"Technician: {technicianName}\n" +
-                            $"Date: {DateTime.Now}\n" +
-                            $"Description: {description}\n" +
-                            $"Logged By Agent: {currentAgentID}";
-
-            fileHandler.SaveMaintenanceReport(currentAgentID, carID, report);
-            // -----------------------------------------
-
-            message = "Maintenance record added and report saved.";
-            return true;
-        }
-        //  Get all maintenance records
+        // Get all maintenance records
         public List<Maintenance> GetAllMaintenance()
         {
             return maintenanceRecords;
         }
 
-        //  Get in-progress maintenance
+        // Get in-progress maintenance
         public List<Maintenance> GetInProgressMaintenance()
         {
-            return maintenanceRecords.Where(m => m.GetStatus() == "In Progress").ToList();
+            List<Maintenance> inProgress = new List<Maintenance>();
+
+            foreach (Maintenance m in maintenanceRecords)
+            {
+                if (m.GetStatus() == "In Progress")
+                {
+                    inProgress.Add(m);
+                }
+            }
+
+            return inProgress;
         }
 
-        //  Get maintenance history for a car
+        // Get maintenance history for a car
         public List<Maintenance> GetCarMaintenanceHistory(string carID)
         {
-            return maintenanceRecords.Where(m => m.GetCarID() == carID).ToList();
+            List<Maintenance> carMaintenance = new List<Maintenance>();
+
+            foreach (Maintenance m in maintenanceRecords)
+            {
+                if (m.GetCarID() == carID)
+                {
+                    carMaintenance.Add(m);
+                }
+            }
+
+            return carMaintenance;
         }
 
-        //  Reload data
+        // Reload data
         public void ReloadData()
         {
             LoadData();
