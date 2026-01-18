@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,6 +9,13 @@ namespace CarRentalSystem
 {
     internal class Car
     {
+
+
+        // program file path (personal laptop): C:\Users\yuanm\source\repos\Car Rental System (Finals)\Car Rental System (Finals)\
+
+        // program file path (school desktop): 
+
+
         //  Properties for Car
         private string carID;
         private string model;
@@ -126,16 +133,15 @@ namespace CarRentalSystem
             estimatedHours = 0;
         }
 
-        // Set maintenance status
         public void SetMaintenance()
         {
-            status = "Under Maintenance";
+            // This MUST match the string in the if-statement above exactly
+            this.status = "Under Maintenance";
         }
 
-        //  Clear maintenance status
         public void ClearMaintenance()
         {
-            status = "Available";
+            this.status = "Available";
         }
 
         //  Getter Methods
@@ -150,9 +156,29 @@ namespace CarRentalSystem
         public int GetEstimatedHours() { return estimatedHours; }
 
         // Display car info (formatted for table) (reflected on the console)
+       
         public string ToTableRow()
         {
-            return $"{carID,-4} | {model,-15} | {category,-8} | {fuelType,-13} | ${hourlyRate,-6}/hr";
+            // Truncate model name if too long (max 20 chars)
+
+            string displayModel = model;
+            if (displayModel.Length > 20)
+            {
+                displayModel = displayModel.Substring(0, 17) + "...";
+            }
+
+            // Truncate fuel type if too long (max 17 chars)
+            string displayFuel = fuelType;
+            if (displayFuel.Length > 17)
+            {
+                displayFuel = displayFuel.Substring(0, 14) + "...";
+            }
+
+            return carID.PadRight(8) + " | " +
+                   displayModel.PadRight(20) + " | " +
+                   category.PadRight(10) + " | " +
+                   displayFuel.PadRight(17) + " | $" +
+                   hourlyRate.ToString("F2") + "/hr";
         }
     }
 }
