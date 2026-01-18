@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.ConstrainedExecution;
 using System.Text;
 using System.Threading;
 
@@ -16,22 +17,51 @@ namespace CarRentalSystem
         private List<CompanyAgent> agents;
         private Customer currentCustomer;
         private CompanyAgent currentAgent;
-        private bool isCustomerLoggedIn;
+
+
 
         public MenuSystem()
         {
             Console.OutputEncoding = Encoding.UTF8;
-
             fileHandler = new FileHandler();
             rentalManager = new RentalManager(fileHandler);
             maintenanceManager = new MaintenanceManager(fileHandler);
+
             customers = fileHandler.ReadCustomers();
             agents = fileHandler.ReadAgents();
-            currentCustomer = null;
-            currentAgent = null;
-            isCustomerLoggedIn = false;
-        }
+            List<Car> allCars = fileHandler.ReadCars();
 
+            bool dataChanged = false;
+
+            // --- CAR DATA CLEANUP ---
+            List<Car> validCars = new List<Car>();
+            List<string> carIds = new List<string>();
+
+            foreach (Car car in allCars)
+            {
+                if (!carIds.Contains(car.GetCarID()))
+                {
+                    validCars.Add(car);
+                    carIds.Add(car.GetCarID());
+                }
+                else
+                {
+                    // This car is a "Zombie" duplicate, we will ignore it 
+                    // and the SaveCars call below will delete its file.
+                    dataChanged = true;
+                }
+            }
+
+            if (dataChanged)
+            {
+                // This is the "Magic" line: it deletes ALL car files 
+                // and only writes back the unique ones.
+                fileHandler.SaveCars(validCars);
+
+                // Refresh the rentalManager with the clean list
+                rentalManager.ReloadData();
+            }
+        }
         public void Start()
         {
             ShowWelcomeScreen();
@@ -45,24 +75,37 @@ namespace CarRentalSystem
         private void ShowWelcomeScreen()
         {
             Console.Clear();
+
+         
+            Console.ForegroundColor = ConsoleColor.White;
+
+            Console.Clear();
             Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.SetCursorPosition(100, 10);
             Console.WriteLine(@"
-   ______              ____             __        __   
-  / ____/___ ______   / __ \___  ____  / /_____ _/ /   
- / /   / __ `/ ___/  / /_/ / _ \/ __ \/ __/ __ `/ /    
-/ /___/ /_/ / /     / _, _/  __/ / / / /_/ /_/ / /     
-\____/\__,_/_/     /_/ |_|\___/_/ /_/\__/\__,_/_/      
+                                      ______              ____             __        __   
+                                     / ____/___ ______   / __ \___  ____  / /_____ _/ /   
+                                    / /   / __ `/ ___/  / /_/ / _ \/ __ \/ __/ __ `/ /    
+                                   / /___/ /_/ / /     / _, _/  __/ / / / /_/ /_/ / /     
+                                   \____/\__,_/_/     /_/ |_|\___/_/ /_/\__/\__,_/_/      
                                                        
 ");
+           
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.SetCursorPosition(70, 17);
+            Console.WriteLine("Management System");
             Console.ResetColor();
-            Thread.Sleep(1000);
 
+
+
+            Console.SetCursorPosition(46, 27);
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("\n                   Press any key to continue...");
+            Console.WriteLine("Press any key to continue...");
             Console.ReadKey();
 
+            Console.SetCursorPosition(50, 29);
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.Write("\n                        Loading");
+            Console.Write("Loading");
 
             for (int i = 0; i < 3; i++)
             {
@@ -169,7 +212,6 @@ namespace CarRentalSystem
                 if (customer != null && customer.ValidatePassword(password))
                 {
                     currentCustomer = customer;
-                    isCustomerLoggedIn = true;
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine($"\n  ✓ Welcome, {customer.GetName()}!");
                     Console.ResetColor();
@@ -192,7 +234,6 @@ namespace CarRentalSystem
                 if (agent != null && agent.ValidatePassword(password))
                 {
                     currentAgent = agent;
-                    isCustomerLoggedIn = false;
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine($"\n  ✓ Welcome, {agent.GetName()}!");
                     Console.ResetColor();
@@ -414,14 +455,13 @@ namespace CarRentalSystem
             }
             else
             {
-                Console.WriteLine($"\n  {"ID",-6} | {"Model",-17} | {"Category",-8} | {"Fuel Type",-15} | {"Price/Hour",-10}");
-                Console.WriteLine("  ─────────────────────────────────────────────────────────────────");
-
+                Console.WriteLine($"\n  {"ID",-6} | {"Model",-20} | {"Category",-10} | {"Fuel Type",-18} | {"Price/Hr",-10}");
+                Console.WriteLine(new string('-', 75)); // Decorative separator line
                 foreach (Car car in availableCars)
                 {
-                    Console.WriteLine("  " + car.ToTableRow());
+                    // Make sure these variables match the headers exactly
+                    Console.WriteLine($"  {car.GetCarID(),-6} | {car.GetModel(),-20} | {car.GetCategory(),-10} | {car.GetFuelType(),-18} | ${car.GetHourlyRate(),-9:F2}");
                 }
-                Console.WriteLine("  ─────────────────────────────────────────────────────────────────");
             }
 
             PauseScreen();
@@ -444,15 +484,15 @@ namespace CarRentalSystem
                 return;
             }
 
-            Console.WriteLine($"  {"ID",-6} | {"Model",-17} | {"Category",-8} | {"Fuel Type",-15} | {"Price/Hour",-10}");
-            Console.WriteLine("  ─────────────────────────────────────────────────────────────────");
+            Console.WriteLine($"\n  {"ID",-6} | {"Model",-20} | {"Category",-10} | {"Fuel Type",-18} | {"Price/Hr",-10}");
+            Console.WriteLine(new string('-', 75)); // Decorative separator line
             foreach (Car car in availableCars)
             {
-                Console.WriteLine("  " + car.ToTableRow());
+                // Make sure these variables match the headers exactly
+                Console.WriteLine($"  {car.GetCarID(),-6} | {car.GetModel(),-20} | {car.GetCategory(),-10} | {car.GetFuelType(),-18} | ${car.GetHourlyRate(),-9:F2}");
             }
-            Console.WriteLine("  ─────────────────────────────────────────────────────────────────\n");
 
-            Console.Write("  Enter Car ID to Rent (or 0 to cancel): ");
+            Console.Write("\nEnter Car ID to Rent (or 0 to cancel): ");
             string carID = Console.ReadLine();
 
             if (string.IsNullOrWhiteSpace(carID) || carID == "0")
@@ -472,6 +512,7 @@ namespace CarRentalSystem
 
             if (!carExists)
             {
+                Console.ForegroundColor = ConsoleColor.Red;
                 ShowError("Invalid Car ID!");
                 return;
             }
@@ -479,11 +520,29 @@ namespace CarRentalSystem
             string conflict = rentalManager.CheckRentalConflict(carID);
             if (conflict != "OK")
             {
-                ShowError($"Cannot rent: {conflict}");
+                Console.ForegroundColor = ConsoleColor.Red;
+                ShowError("Cannot rent: " + conflict);
                 return;
             }
 
-            Console.Write("  How many hours do you plan to rent? ");
+            Console.Write("  \nEnter Driver Name: ");
+            string driverName = Console.ReadLine();
+
+            if (string.IsNullOrWhiteSpace(driverName))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                ShowError("Driver name cannot be empty!");
+                return;
+            }
+
+            if (rentalManager.IsDriverNameTaken(currentCustomer.GetCustomerID(), driverName))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                ShowError("\nThis driver name is already used in one of your bookings!");
+                return;
+            }
+
+            Console.Write("  \nHow many hours do you plan to rent? ");
             string hoursInput = Console.ReadLine();
 
             if (!int.TryParse(hoursInput, out int hours) || hours <= 0)
@@ -518,23 +577,25 @@ namespace CarRentalSystem
             }
 
             string rentalID;
-            if (rentalManager.ConfirmBooking(currentCustomer.GetCustomerID(), carID, hours, out rentalID))
+            if (rentalManager.ConfirmBooking(currentCustomer.GetCustomerID(), carID, driverName, hours, out rentalID))
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("\n  ✓ Booking confirmed!");
-                Thread.Sleep(2000);
-                Console.WriteLine($"\n Generating reciept");
 
-                for ( int i = 0; i < 3; i++)
-                {        
-                    Thread.Sleep(1000);
-                    Console.WriteLine(".");
+              
+                Console.Write("\n  Generating receipt");
+
+                for (int i = 0; i < 3; i++)
+                {
+                    Thread.Sleep(500);
+                    Console.Write("."); 
                 }
-                Console.ResetColor();
-                Console.Clear();
 
+                Console.ResetColor();
+                Thread.Sleep(500);// Give the user a moment to see the 3rd dot before clearing
+                Console.Clear();
                 Car car = rentalManager.GetCarByID(carID);
-                string receipt = GenerateRentalReceipt(rentalID, car, hours, basePrice, deposit, totalDue);
+                string receipt = GenerateRentalReceipt(rentalID, car, driverName, hours, basePrice, deposit, totalDue);
                 Console.WriteLine(receipt);
 
                 fileHandler.SaveCustomerReceipt(currentCustomer.GetCustomerID(), receipt);
@@ -547,23 +608,24 @@ namespace CarRentalSystem
             }
         }
 
-        private string GenerateRentalReceipt(string rentalID, Car car, int hours, decimal basePrice, decimal deposit, decimal total)
+        private string GenerateRentalReceipt(string rentalID, Car car, string driverName, int hours, decimal basePrice, decimal deposit, decimal total)
         {
             StringBuilder receipt = new StringBuilder();
             receipt.AppendLine("\n╔════════════════════════════════════════════════════════════════╗");
             receipt.AppendLine("║                      RENTAL RECEIPT                            ║");
             receipt.AppendLine("╚════════════════════════════════════════════════════════════════╝");
-            receipt.AppendLine($"  Rental ID:      {rentalID}");
-            receipt.AppendLine($"  Customer:       {currentCustomer.GetName()}");
-            receipt.AppendLine($"  Customer ID:    {currentCustomer.GetCustomerID()}");
-            receipt.AppendLine($"  Car:            {car.GetModel()} ({car.GetCarID()})");
-            receipt.AppendLine($"  Rental Start:   {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            receipt.AppendLine($"  Rental ID:       {rentalID}");
+            receipt.AppendLine($"  Customer:        {currentCustomer.GetName()}");
+            receipt.AppendLine($"  Customer ID:     {currentCustomer.GetCustomerID()}");
+            receipt.AppendLine($"  Driver Name:     {driverName}");
+            receipt.AppendLine($"  Car:             {car.GetModel()} ({car.GetCarID()})");
+            receipt.AppendLine($"  Rental Start:    {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             receipt.AppendLine($"  Estimated Hours: {hours}");
             receipt.AppendLine("  ─────────────────────────────────────────────────────────────────");
-            receipt.AppendLine($"  Base Price:     ${basePrice:F2}");
-            receipt.AppendLine($"  Deposit:        ${deposit:F2}");
+            receipt.AppendLine($"  Base Price:      ${basePrice:F2}");
+            receipt.AppendLine($"  Deposit:         ${deposit:F2}");
             receipt.AppendLine("  ─────────────────────────────────────────────────────────────────");
-            receipt.AppendLine($"  TOTAL DUE:      ${total:F2}");
+            receipt.AppendLine($"  TOTAL DUE:       ${total:F2}");
             receipt.AppendLine("═════════════════════════════════════════════════════════════════");
             return receipt.ToString();
         }
@@ -591,6 +653,7 @@ namespace CarRentalSystem
                 {
                     Car car = rentalManager.GetCarByID(rental.GetCarID());
                     Console.WriteLine($"  Rental ID:       {rental.GetRentalID()}");
+                    Console.WriteLine($"  Driver:          {rental.GetDriverName()}");
                     Console.WriteLine($"  Car:             {car.GetModel()} ({car.GetCarID()})");
                     Console.WriteLine($"  Started:         {rental.GetRentalStartTime():yyyy-MM-dd HH:mm:ss}");
                     Console.WriteLine($"  Estimated Hours: {rental.GetEstimatedHours()}");
@@ -624,9 +687,16 @@ namespace CarRentalSystem
                 foreach (Rental rental in allRentals)
                 {
                     Car car = rentalManager.GetCarByID(rental.GetCarID());
+                    string endDate = "Ongoing";
+                    if (rental.GetStatus() == "Completed")
+                    {
+                        endDate = rental.GetRentalEndTime().ToString("yyyy-MM-dd");
+                    }
+
                     Console.WriteLine($"  [{rental.GetStatus()}] Rental ID: {rental.GetRentalID()}");
+                    Console.WriteLine($"    Driver: {rental.GetDriverName()}");
                     Console.WriteLine($"    Car: {car.GetModel()}");
-                    Console.WriteLine($"    Period: {rental.GetRentalStartTime():yyyy-MM-dd} to {(rental.GetStatus() == "Completed" ? rental.GetRentalEndTime().ToString("yyyy-MM-dd") : "Ongoing")}");
+                    Console.WriteLine($"    Period: {rental.GetRentalStartTime():yyyy-MM-dd} to {endDate}");
                     Console.WriteLine($"    Total: ${rental.GetTotalCost():F2}");
                     Console.WriteLine("  ─────────────────────────────────────────────────────────────────");
                 }
@@ -636,7 +706,7 @@ namespace CarRentalSystem
         }
 
         // ═══════════════════════════════════════════════════════════
-        // 🏢 ADMIN DASHBOARD
+        //  ADMIN DASHBOARD
         // ═══════════════════════════════════════════════════════════
 
         private void AdminDashboard()
@@ -646,18 +716,18 @@ namespace CarRentalSystem
                 Console.Clear();
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
-                Console.WriteLine($"║  ADMIN DASHBOARD - Welcome, {currentAgent.GetName(),-29} ║");
+                Console.WriteLine($"║  ADMIN DASHBOARD - Welcome, {currentAgent.GetName(),-29}      ║");
                 Console.WriteLine("╚════════════════════════════════════════════════════════════════╝");
                 Console.ResetColor();
 
-                Console.WriteLine("\n  1. View Fleet Status");
-                Console.WriteLine("  2. Process Car Return");
-                Console.WriteLine("  3. Add Maintenance Record");
-                Console.WriteLine("  4. Complete Maintenance");
-                Console.WriteLine("  5. View Maintenance Records");
-                Console.WriteLine("  6. Add Cars");
-                Console.WriteLine("  7. View Total Revenue");
-                Console.WriteLine("  8. Logout");
+                Console.WriteLine("\n1. View Fleet Status");
+                Console.WriteLine("\n2. Process Car Return");
+                Console.WriteLine("\n3. Add Maintenance Record");
+                Console.WriteLine("\n4. Complete Maintenance");
+                Console.WriteLine("\n5. View Maintenance Records");
+                Console.WriteLine("\n6. Add/Remove Cars");
+                Console.WriteLine("\n7. View Total Revenue");
+                Console.WriteLine("\n8. Logout");
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.Write("\n  Choice: ");
@@ -687,7 +757,7 @@ namespace CarRentalSystem
                 }
                 else if (choice == "6")
                 {
-                    AddCarsMenu();
+                    AddorRemoveCarsMenu();
                 }
                 else if (choice == "7")
                 {
@@ -717,12 +787,37 @@ namespace CarRentalSystem
             rentalManager.ReloadData();
             List<Car> allCars = rentalManager.GetAllCars();
 
-            int available = 0, rented = 0, maintenance = 0;
+            // Remove duplicates by ID (keep only the first occurrence)
+            List<Car> uniqueCars = new List<Car>();
+            List<string> seenIds = new List<string>();
 
-            Console.WriteLine($"  {"ID",-6} | {"Model",-17} | {"Category",-8} | {"Status",-18}");
-            Console.WriteLine("  ─────────────────────────────────────────────────────────────────");
+         
 
             foreach (Car car in allCars)
+            {
+                bool alreadySeen = false;
+                foreach (string id in seenIds)
+                {
+                    if (id == car.GetCarID())
+                    {
+                        alreadySeen = true;
+                        break;
+                    }
+                }
+
+                if (!alreadySeen)
+                {
+                    uniqueCars.Add(car);
+                    seenIds.Add(car.GetCarID());
+                }
+            }
+
+            int available = 0, rented = 0, maintenance = 0;
+
+            Console.WriteLine($"  {"ID",-8} | {"Model",-20} | {"Category",-10} | {"Status",-20}");
+            Console.WriteLine("  ───────────────────────────────────────────────────────────────────────");
+
+            foreach (Car car in uniqueCars)
             {
                 string status = car.GetStatus();
 
@@ -737,6 +832,11 @@ namespace CarRentalSystem
                 else if (status == "Under Maintenance")
                 {
                     maintenance++;
+                }
+                // Skip cars with IDs starting with "M"
+                if (car.GetCarID().StartsWith("M", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
                 }
 
                 ConsoleColor statusColor = ConsoleColor.White;
@@ -753,14 +853,21 @@ namespace CarRentalSystem
                     statusColor = ConsoleColor.Red;
                 }
 
-                Console.Write($"  {car.GetCarID(),-6} | {car.GetModel(),-17} | {car.GetCategory(),-8} | ");
+                // Truncate model name if too long
+                string modelName = car.GetModel();
+                if (modelName.Length > 20)
+                {
+                    modelName = modelName.Substring(0, 17) + "...";
+                }
+
+                Console.Write($"  {car.GetCarID(),-8} | {modelName,-20} | {car.GetCategory(),-10} | ");
                 Console.ForegroundColor = statusColor;
-                Console.WriteLine($"{status,-18}");
+                Console.WriteLine($"{status,-20}");
                 Console.ResetColor();
             }
 
-            Console.WriteLine("  ─────────────────────────────────────────────────────────────────");
-            Console.WriteLine($"  Total: {allCars.Count} | Available: {available} | Rented: {rented} | Maintenance: {maintenance}");
+            Console.WriteLine("  ───────────────────────────────────────────────────────────────────────");
+            Console.WriteLine($"  Total: {uniqueCars.Count} | Available: {available} | Rented: {rented} | Maintenance: {maintenance}");
 
             PauseScreen();
         }
@@ -899,7 +1006,7 @@ namespace CarRentalSystem
             }
 
             string message;
-            if (maintenanceManager.AddMaintenance(carID, techName, description, currentAgent.GetAgentID(), out message))
+            if (maintenanceManager.AddMaintenance(carID, techName, description, out message))
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine($"\n  ✓ {message}");
@@ -990,12 +1097,12 @@ namespace CarRentalSystem
                     ConsoleColor statusColor = m.GetStatus() == "Completed" ? ConsoleColor.Green : ConsoleColor.Yellow;
 
                     Console.ForegroundColor = statusColor;
-                    Console.WriteLine($"  [{m.GetStatus()}] {m.GetMaintenanceID()}");
+                    Console.WriteLine($"\n[{m.GetStatus()}] {m.GetMaintenanceID()}");
                     Console.ResetColor();
-                    Console.WriteLine($"    Car: {m.GetCarID()}");
-                    Console.WriteLine($"    Technician: {m.GetTechnicianName()}");
-                    Console.WriteLine($"    Date: {m.GetMaintenanceDate():yyyy-MM-dd HH:mm}");
-                    Console.WriteLine($"    Description: {m.GetDescription()}");
+                    Console.WriteLine($"\nCar: {m.GetCarID()}");
+                    Console.WriteLine($"\nTechnician: {m.GetTechnicianName()}");
+                    Console.WriteLine($"\nDate: {m.GetMaintenanceDate():yyyy-MM-dd HH:mm}");
+                    Console.WriteLine($"\nDescription: {m.GetDescription()}");
                     Console.WriteLine("  ─────────────────────────────────────────────────────────────────");
                 }
             }
@@ -1004,35 +1111,39 @@ namespace CarRentalSystem
         }
 
         // ═══════════════════════════════════════════════════════════
-        // 🚗 ADD CARS MENU (SINGLE & BULK WITH VALIDATION)
+        //  ADD CARS MENU (SINGLE & BULK WITH VALIDATION)
         // ═══════════════════════════════════════════════════════════
 
-        private void AddCarsMenu()
+        private void AddorRemoveCarsMenu()
         {
-            Console.Clear();
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║                        ADD CARS                                ║");
-            Console.WriteLine("╚════════════════════════════════════════════════════════════════╝");
-            Console.ResetColor();
-
-            Console.WriteLine("\n  1. Add Single Car");
-            Console.WriteLine("  2. Add Cars from File/CSV Text");
-            Console.WriteLine("  3. Cancel");
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.Write("\n  Choice: ");
-            Console.ResetColor();
-
-            string choice = Console.ReadLine();
-
-            if (choice == "1")
+            while (true)
             {
-                AddSingleCar();
-            }
-            else if (choice == "2")
-            {
-                AddBulkCars();
+                Console.Clear();
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
+                Console.WriteLine("║                    MANAGE CAR INVENTORY                        ║");
+                Console.WriteLine("╚════════════════════════════════════════════════════════════════╝");
+                Console.ResetColor();
+
+                Console.WriteLine("\n1. Add Single Car (Manual)");
+                Console.WriteLine("\n2. Add Bulk Cars (Paste Multiple Cars)");
+                Console.WriteLine("\n3. Remove Car from Fleet");
+                Console.WriteLine("\n4. Return to Main Menu");
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("\n  Choice: ");
+                Console.ResetColor();
+
+                string choice = Console.ReadLine();
+
+                switch (choice)
+                {
+                    case "1": AddSingleCar(); break;
+                    case "2": AddBulkCars(); break;
+                    case "3": RemoveCar(); break;
+                    case "4": return;
+                    default: ShowError("Invalid Choice!"); break;
+                }
             }
         }
 
@@ -1041,105 +1152,86 @@ namespace CarRentalSystem
             Console.Clear();
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║                          ADD SINGLE CAR                        ║");
+            Console.WriteLine("║                        ADD SINGLE CAR                          ║");
             Console.WriteLine("╚════════════════════════════════════════════════════════════════╝\n");
             Console.ResetColor();
 
             List<Car> cars = fileHandler.ReadCars();
+            string carID = "";
 
-            // --- SMART ID START ---
-            int maxFound = 10;
-            foreach (Car existingCar in cars)
+            // --- ID SELECTION MENU ---
+            Console.WriteLine("  ID Assignment:");
+            Console.WriteLine("  1. Auto-Generate (Smart Fill)");
+            Console.WriteLine("  2. Manual Entry (Override)");
+            Console.Write("\n  Choice: ");
+            string idChoice = Console.ReadLine();
+
+            if (idChoice == "2")
             {
-                string idPart = existingCar.GetCarID().Replace("C", "");
-                if (int.TryParse(idPart, out int currentNum))
+                Console.Write("  Enter Manual ID (e.g., C001): ");
+                carID = Console.ReadLine()?.Trim().ToUpper();
+
+                // Check if manual ID already exists to prevent duplicates
+                bool exists = false;
+                foreach (Car c in cars) { if (c.GetCarID() == carID) exists = true; }
+
+                if (exists)
                 {
-                    if (currentNum > maxFound) maxFound = currentNum;
+                    ShowError($"ID {carID} is already taken by another car!");
+                    return;
                 }
             }
-            string carID = $"C{(maxFound + 1):D3}";
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"  [SYSTEM] Auto-Assigned ID: {carID}");
-            Console.ResetColor();
-            // --- SMART ID END ---
+            else
+            {
+                // --- SMART FILL LOGIC (Finds gaps like C001) ---
+                int idSeed = 1;
+                while (true)
+                {
+                    string checkID = $"C{idSeed:D3}";
+                    bool found = false;
+                    foreach (Car c in cars)
+                    {
+                        if (c.GetCarID() == checkID) { found = true; break; }
+                    }
 
+                    if (!found) // We found a gap!
+                    {
+                        carID = checkID;
+                        break;
+                    }
+                    idSeed++;
+                }
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"  [SYSTEM] Smart-Fill ID assigned: {carID}");
+                Console.ResetColor();
+            }
+
+            // --- REST OF THE INPUT LOGIC ---
             Console.Write("  Model: ");
             string model = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(model)) { ShowError("Model cannot be empty!"); return; }
 
-            if (string.IsNullOrWhiteSpace(model))
-            {
-                ShowError("Model cannot be empty!");
-                return;
-            }
+            // Category Selection
+            string category = GetCategoryChoice(); // Helper method recommended for clean code
 
-            // IDIOT-PROOF CATEGORY VALIDATION
-            string category = "";
-            bool validCategory = false;
-            while (!validCategory)
-            {
-                Console.WriteLine("\n  Category:");
-                Console.WriteLine("    1. SUV");
-                Console.WriteLine("    2. Sedan");
-                Console.WriteLine("    3. Van");
-                Console.Write("\n  Choice: ");
-                string catChoice = Console.ReadLine();
-
-                switch (catChoice)
-                {
-                    case "1": category = "SUV"; validCategory = true; break;
-                    case "2": category = "Sedan"; validCategory = true; break;
-                    case "3": category = "Van"; validCategory = true; break;
-                    default:
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine("\n  ✗ Invalid choice! Select 1-3.");
-                        Console.ResetColor();
-                        break;
-                }
-            }
-
-            // Fuel Type Validation
-            string fuelType = "";
-            bool validFuel = false;
-            while (!validFuel)
-            {
-                Console.WriteLine("\n  Fuel Type:");
-                Console.WriteLine("    1. Dual Motor");
-                Console.WriteLine("    2. Standard Engine");
-                Console.WriteLine("    3. EV");
-                Console.Write("\n  Choice: ");
-                string fuelChoice = Console.ReadLine();
-
-                switch (fuelChoice)
-                {
-                    case "1": fuelType = "Dual Motor"; validFuel = true; break;
-                    case "2": fuelType = "Standard Engine"; validFuel = true; break;
-                    case "3": fuelType = "EV"; validFuel = true; break;
-                    default:
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine("\n  ✗ Invalid choice! Select 1-3.");
-                        Console.ResetColor();
-                        break;
-                }
-            }
+            // Fuel Selection
+            string fuelType = GetFuelChoice(); // Helper method recommended for clean code
 
             Console.Write("\n  Hourly Rate: $");
-            string rateInput = Console.ReadLine();
-
-            if (!decimal.TryParse(rateInput, out decimal hourlyRate) || hourlyRate <= 0)
+            if (!decimal.TryParse(Console.ReadLine(), out decimal hourlyRate) || hourlyRate <= 0)
             {
                 ShowError("Invalid hourly rate!");
                 return;
             }
 
-            // Final Creation
+            // Save
             Car newCar = new Car(carID, model, category, fuelType, hourlyRate);
             cars.Add(newCar);
             fileHandler.SaveCars(cars);
 
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"\n  ✓ Car '{model}' saved with ID {carID}!");
+            Console.WriteLine($"\n  ✓ Car '{model}' saved successfully as {carID}!");
             Console.ResetColor();
-
             PauseScreen();
         }
 
@@ -1152,10 +1244,12 @@ namespace CarRentalSystem
             Console.WriteLine("╚════════════════════════════════════════════════════════════════╝\n");
             Console.ResetColor();
 
-            // Note: 
-            Console.WriteLine("\nPaste CSV data (format: Model,Category,FuelType,Rate)");
-            Console.WriteLine("Example: Toyota Fortuner,SUV,Standard Engine,50.00");
+            Console.WriteLine("\nInstructions:");
+            Console.WriteLine("\n1.Do NOT include a Car ID (the system will generate it automatically).");
+            Console.WriteLine("\n2.Format: Model, Category, FuelType, HourlyRate");
+            Console.WriteLine("\nExample: Toyota Fortuner,SUV,Standard Engine,50.00");
             Console.WriteLine("\nValid Categories: SUV, Sedan, Van");
+            Console.WriteLine("Valid Fuel Types: Standard Engine, Dual Motor, EV");
             Console.WriteLine("\nType 'END' on a new line when done:\n");
 
             List<string> csvLines = new List<string>();
@@ -1166,7 +1260,7 @@ namespace CarRentalSystem
                 csvLines.Add(line);
             }
 
-            if (csvLines.Count == 0) { ShowError("No data provided!"); return; }
+            if (csvLines.Count == 0) { return; }
 
             Console.WriteLine("\n  ═══════════════ VALIDATION RESULTS ═══════════════\n");
 
@@ -1174,53 +1268,38 @@ namespace CarRentalSystem
             int successCount = 0;
             int failCount = 0;
 
-            // --- SMART ID START ---
-
-            // Set the absolute minimum starting number
-            int maxFound = 10;
-
-            //  Look at the existing cars to see if we should start higher
-            if (existingCars.Count > 0)
+            // --- SMART ID LOGIC ---
+            int maxFound = 0;
+            foreach (Car car in existingCars)
             {
-                foreach (Car car in existingCars)
+                string idPart = car.GetCarID().Replace("C", "");
+                if (int.TryParse(idPart, out int currentNum))
                 {
-                    // Get the "020" from "C020" and turn it into a number
-                    string idPart = car.GetCarID().Replace("C", "");
-                    if (int.TryParse(idPart, out int currentNum))
-                    {
-                        if (currentNum > maxFound)
-                        {
-                            maxFound = currentNum; // Update if we find a higher ID
-                        }
-                    }
+                    if (currentNum > maxFound) maxFound = currentNum;
                 }
             }
-
-            // The first new car will be maxFound + 1 (e.g., 11 if list was empty)
             int nextIdNumber = maxFound + 1;
 
             foreach (string line in csvLines)
             {
                 string[] parts = line.Split(',');
 
-                // Now checking for 4 columns instead of 5 (No ID provided)
-                if (parts.Length < 4)
+                // Validate Column Count (Must be exactly 4)
+                if (parts.Length != 4)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"  [FAILED] Missing Columns: {line}");
+                    Console.WriteLine($"  [FAILED] Wrong format (Needs 4 parts): {line}");
                     Console.ResetColor();
                     failCount++;
                     continue;
                 }
 
-                // Generate the ID automatically
-                string carID = $"C{nextIdNumber:D3}"; // Formats to C011, C012, etc.
                 string model = parts[0].Trim();
                 string category = parts[1].Trim();
                 string fuelType = parts[2].Trim();
                 string rateStr = parts[3].Trim();
 
-                //  IDIOT-PROOF Category Check
+                //. Validate Category (Case Insensitive)
                 string upperCat = category.ToUpper();
                 if (upperCat != "SUV" && upperCat != "SEDAN" && upperCat != "VAN")
                 {
@@ -1230,9 +1309,13 @@ namespace CarRentalSystem
                     failCount++;
                     continue;
                 }
+                // Normalize the category name for storage (SUV, Sedan, Van)
+                category = char.ToUpper(category[0]) + category.Substring(1).ToLower();
+                if (upperCat == "SUV") category = "SUV";
 
-                // Fuel Type Check
-                if (fuelType != "Dual Motor" && fuelType != "Standard Engine" && fuelType != "EV")
+                // 2Validate Fuel Type
+                string upperFuel = fuelType.ToUpper();
+                if (upperFuel != "STANDARD ENGINE" && upperFuel != "DUAL MOTOR" && upperFuel != "EV")
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"  [FAILED] Invalid Fuel Type '{fuelType}': {line}");
@@ -1241,7 +1324,7 @@ namespace CarRentalSystem
                     continue;
                 }
 
-                //  Rate Check
+                //  Validate Rate
                 if (!decimal.TryParse(rateStr, out decimal hourlyRate) || hourlyRate <= 0)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
@@ -1251,32 +1334,266 @@ namespace CarRentalSystem
                     continue;
                 }
 
-                // ALL VALIDATIONS PASSED - ADD CAR
+                //  Success - Create ID and Add
+                string carID = $"C{nextIdNumber:D3}";
                 Car newCar = new Car(carID, model, category, fuelType, hourlyRate);
                 existingCars.Add(newCar);
 
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"  [SUCCESS] Assigned {carID} -> {model}");
+                Console.WriteLine($"  [SUCCESS] {carID} created for {model}");
                 Console.ResetColor();
 
                 successCount++;
-                nextIdNumber++; // Increment number for the NEXT car in the loop
+                nextIdNumber++;
             }
 
-            // Save results
+            // Save and Final Message
             if (successCount > 0)
             {
                 fileHandler.SaveCars(existingCars);
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"\n  ✓ {successCount} car(s) added and saved to Admin directory!");
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"\n  ✓ Saved {successCount} cars to the database.");
+            }
+
+            if (failCount > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"  ✗ {failCount} lines failed validation.");
             }
 
             Console.ResetColor();
+            Console.WriteLine("\nPress any key to return to menu...");
+            Console.ReadKey();
+        }
+
+        // Add this method to your MenuSystem class
+
+        private void RemoveCar()
+        {
+            Console.Clear();
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║                         REMOVE CAR(S)                          ║");
+            Console.WriteLine("╚════════════════════════════════════════════════════════════════╝\n");
+            Console.ResetColor();
+
+            // Reload to get latest data
+            rentalManager.ReloadData();
+            List<Car> cars = fileHandler.ReadCars();
+
+            if (cars.Count == 0)
+            {
+                ShowError("The fleet is currently empty.");
+                return;
+            }
+
+            // Display all cars
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("  CURRENT FLEET:");
+            Console.ResetColor();
+            Console.WriteLine($"  {"ID",-8} | {"Model",-20} | {"Category",-10} | {"Status",-20}");
+            Console.WriteLine("  ───────────────────────────────────────────────────────────────────────");
+
+            foreach (Car car in cars)
+            {
+                ConsoleColor statusColor = ConsoleColor.White;
+                if (car.GetStatus() == "Available")
+                {
+                    statusColor = ConsoleColor.Green;
+                }
+                else if (car.GetStatus() == "Rented")
+                {
+                    statusColor = ConsoleColor.Yellow;
+                }
+                else if (car.GetStatus() == "Under Maintenance")
+                {
+                    statusColor = ConsoleColor.Red;
+                }
+
+                Console.Write($"  {car.GetCarID(),-8} | ");
+
+                // Truncate model name if too long
+                string modelName = car.GetModel();
+                if (modelName.Length > 20)
+                {
+                    modelName = modelName.Substring(0, 17) + "...";
+                }
+                Console.Write($"{modelName,-20} | {car.GetCategory(),-10} | ");
+
+                Console.ForegroundColor = statusColor;
+                Console.WriteLine($"{car.GetStatus(),-20}");
+                Console.ResetColor();
+            }
+            Console.WriteLine("  ───────────────────────────────────────────────────────────────────────\n");
+
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("  INSTRUCTIONS:");
+            Console.WriteLine("  - Enter single ID: C001");
+            Console.WriteLine("  - Enter multiple IDs: C001,C002,C003");
+            Console.WriteLine("  - Enter 0 to cancel");
+            Console.ResetColor();
+
+            Console.Write("\n  Enter Car ID(s) to remove: ");
+            string input = Console.ReadLine();
+
+            if (string.IsNullOrWhiteSpace(input) || input.Trim() == "0")
+            {
+                Console.WriteLine("\n  Operation cancelled.");
+                PauseScreen();
+                return;
+            }
+
+            // Parse input - split by comma
+            string[] idsToRemove = input.Split(',');
+            List<string> cleanedIds = new List<string>();
+
+            // Clean and validate IDs
+            foreach (string id in idsToRemove)
+            {
+                string cleanId = id.Trim().ToUpper();
+                if (!string.IsNullOrWhiteSpace(cleanId))
+                {
+                    cleanedIds.Add(cleanId);
+                }
+            }
+
+            if (cleanedIds.Count == 0)
+            {
+                ShowError("No valid IDs provided!");
+                return;
+            }
+
+            // Find cars to delete and validate
+            List<Car> carsToDelete = new List<Car>();
+            List<string> notFoundIds = new List<string>();
+            List<string> rentedIds = new List<string>();
+
+            foreach (string carId in cleanedIds)
+            {
+                bool found = false;
+                foreach (Car car in cars)
+                {
+                    if (car.GetCarID() == carId)
+                    {
+                        found = true;
+
+                        // Check if rented
+                        if (car.GetStatus() == "Rented")
+                        {
+                            rentedIds.Add(carId);
+                        }
+                        else
+                        {
+                            carsToDelete.Add(car);
+                        }
+                        break;
+                    }
+                }
+
+                if (!found)
+                {
+                    notFoundIds.Add(carId);
+                }
+            }
+
+            // Display validation results
+            Console.WriteLine("\n  ═══════════════ VALIDATION RESULTS ═══════════════\n");
+
+            // Show not found IDs
+            if (notFoundIds.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("  [NOT FOUND] The following IDs do not exist:");
+                foreach (string id in notFoundIds)
+                {
+                    Console.WriteLine($"    - {id}");
+                }
+                Console.ResetColor();
+            }
+
+            // Show rented cars that cannot be deleted
+            if (rentedIds.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("  [CANNOT DELETE] The following cars are currently rented:");
+                foreach (string id in rentedIds)
+                {
+                    Console.WriteLine($"    - {id}");
+                }
+                Console.ResetColor();
+            }
+
+            // Show cars that will be deleted
+            if (carsToDelete.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("  [READY TO DELETE] The following cars will be removed:");
+                foreach (Car car in carsToDelete)
+                {
+                    Console.WriteLine($"    - {car.GetCarID()} ({car.GetModel()})");
+                }
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("\n  ✗ No cars available for deletion!");
+                Console.ResetColor();
+                PauseScreen();
+                return;
+            }
+
+            // Final confirmation
+            Console.WriteLine("\n  ═══════════════════════════════════════════════════\n");
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Write($"  ⚠ DELETE {carsToDelete.Count} car(s) PERMANENTLY? (Y/N): ");
+            Console.ResetColor();
+
+            string confirm = Console.ReadLine();
+
+            if (string.IsNullOrWhiteSpace(confirm) || confirm.ToUpper() != "Y")
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("\n  Operation cancelled. No cars were deleted.");
+                Console.ResetColor();
+                PauseScreen();
+                return;
+            }
+
+            // Perform deletion
+            int deletedCount = 0;
+            foreach (Car carToDelete in carsToDelete)
+            {
+                // Remove from memory list
+                cars.Remove(carToDelete);
+                deletedCount++;
+            }
+
+            // Save updated list - this will physically delete files
+            fileHandler.SaveCars(cars);
+
+            // Success message
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"\n  ✓ Successfully deleted {deletedCount} car(s) from the system!");
+            Console.WriteLine("  ✓ Changes saved permanently to files.");
+            Console.ResetColor();
+
+            // Show summary if there were any issues
+            if (notFoundIds.Count > 0 || rentedIds.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("\n  SUMMARY:");
+                Console.WriteLine($"    Deleted: {deletedCount}");
+                Console.WriteLine($"    Not Found: {notFoundIds.Count}");
+                Console.WriteLine($"    Skipped (Rented): {rentedIds.Count}");
+                Console.ResetColor();
+            }
+
             PauseScreen();
         }
 
         // ═══════════════════════════════════════════════════════════
-        // 💰 VIEW TOTAL REVENUE
+        //  VIEW TOTAL REVENUE
         // ═══════════════════════════════════════════════════════════
 
         private void ViewTotalRevenue()
@@ -1326,7 +1643,7 @@ namespace CarRentalSystem
         }
 
         // ═══════════════════════════════════════════════════════════
-        // 🛠️ UTILITY METHODS
+        // UTILITY AND HELPER METHODS
         // ═══════════════════════════════════════════════════════════
 
         private void ShowError(string message)
@@ -1345,6 +1662,46 @@ namespace CarRentalSystem
             Console.ReadKey();
         }
 
+        private string GetCategoryChoice()
+        {
+            while (true)
+            {
+                Console.WriteLine("\n  Category:");
+                Console.WriteLine("  1. SUV\n  2. Sedan\n  3. Van");
+                Console.Write("  Choice: ");
+                string choice = Console.ReadLine();
+                if (choice == "1") return "SUV";
+                if (choice == "2") return "Sedan";
+                if (choice == "3") return "Van";
+                Console.WriteLine("  Invalid selection!");
+            }
+        }
+
+        private string GetFuelChoice()
+        {
+            while (true)
+            {
+                Console.WriteLine("\n  Select Fuel Type:");
+                Console.WriteLine("  1. Standard Engine");
+                Console.WriteLine("  2. Dual Motor");
+                Console.WriteLine("  3. EV");
+                Console.Write("  Choice: ");
+                string choice = Console.ReadLine();
+
+                switch (choice)
+                {
+                    case "1": return "Standard Engine";
+                    case "2": return "Dual Motor";
+                    case "3": return "EV";
+                    default:
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("  ✗ Invalid choice! Enter 1-3.");
+                        Console.ResetColor();
+                        break;
+                }
+            }
+        }
+
         private void ExitSystem()
         {
             Console.Clear();
@@ -1355,8 +1712,7 @@ namespace CarRentalSystem
             Console.ResetColor();
             Thread.Sleep(1500);
         }
-    } 
-} // End of MenuSystem class
 
-     
-    
+       
+    } 
+} 
