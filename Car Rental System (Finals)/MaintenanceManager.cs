@@ -80,11 +80,16 @@ namespace CarRentalSystem
         public bool CompleteMaintenance(string maintenanceID, out string message)
         {
             message = "";
+            ReloadData(); // Make sure lists are fresh
 
             Maintenance maintenance = null;
+            Car car = null;
+
+            // 1. SIMPLE LOOP to find the Maintenance Record
             foreach (Maintenance m in maintenanceRecords)
             {
-                if (m.GetMaintenanceID() == maintenanceID && m.GetStatus() == "In Progress")
+                // Use Trim to ignore any accidental spaces in the file or input
+                if (m.GetMaintenanceID().Trim().Equals(maintenanceID.Trim(), StringComparison.OrdinalIgnoreCase))
                 {
                     maintenance = m;
                     break;
@@ -93,11 +98,11 @@ namespace CarRentalSystem
 
             if (maintenance == null)
             {
-                message = "Maintenance record not found or already completed";
+                message = $"Error: Maintenance ID '{maintenanceID}' not found.";
                 return false;
             }
 
-            Car car = null;
+            // 2. SIMPLE LOOP to find the Car linked to that record
             foreach (Car c in cars)
             {
                 if (c.GetCarID() == maintenance.GetCarID())
@@ -109,16 +114,18 @@ namespace CarRentalSystem
 
             if (car == null)
             {
-                message = "Car not found";
+                message = "Error: The car for this record no longer exists in the system.";
                 return false;
             }
 
-            maintenance.CompleteMaintenance();
-            car.ClearMaintenance();
+            // 3. Update the objects
+            maintenance.CompleteMaintenance(); // Sets record to "Completed"
+            car.ClearMaintenance();            // Sets car to "Available"
 
+            // 4. Save changes (This triggers your folder move logic)
             SaveData();
 
-            message = "Maintenance completed successfully";
+            message = "Success! Maintenance completed and car is now Available.";
             return true;
         }
 
