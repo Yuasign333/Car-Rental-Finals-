@@ -123,7 +123,7 @@ namespace CarRentalSystem
             return false;
         }
 
-        // ✅ FIX: Confirm booking - NOW SAVES TO FILES
+        //  FIX: Confirm booking - NOW SAVES TO FILES
         public bool ConfirmBooking(string customerID, string carID, string driverName, int estimatedHours, out string rentalID)
         {
             rentalID = "";
@@ -156,24 +156,24 @@ namespace CarRentalSystem
             Rental rental = new Rental(rentalID, customerID, carID, driverName, estimatedHours, car.GetHourlyRate());
             rentals.Add(rental);
 
-            // ✅ UPDATE CAR STATUS IN MEMORY
+            //  UPDATE CAR STATUS IN MEMORY
             car.RentCar(customerID, estimatedHours);
 
-            // ✅ CRITICAL FIX: SAVE TO FILES
+            //  CRITICAL FIX: SAVE TO FILES
             // This will move the car from Cars_Available to Cars_Rented folder
             SaveData();
 
             return true;
         }
 
-        // ✅ FIX: Process return - NOW PROPERLY UPDATES FILES
+        //  FIX: Process return - NOW PROPERLY UPDATES FILES
         public bool ProcessReturn(string carID, int actualHours, out decimal finalCost, out decimal discount, out string message)
         {
             finalCost = 0;
             discount = 0;
             message = "";
 
-            // ✅ RELOAD DATA TO GET LATEST STATE FROM FILES
+            //  RELOAD DATA TO GET LATEST STATE FROM FILES
             LoadData();
 
             Car car = null;
