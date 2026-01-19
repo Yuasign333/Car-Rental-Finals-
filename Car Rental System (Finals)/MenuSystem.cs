@@ -787,6 +787,21 @@ namespace CarRentalSystem
             rentalManager.ReloadData();
             List<Car> allCars = rentalManager.GetAllCars();
 
+            // Sort cars by ID using Bubble Sort
+            for (int i = 0; i < allCars.Count - 1; i++)
+            {
+                for (int j = 0; j < allCars.Count - i - 1; j++)
+                {
+                    // string.Compare returns > 0 if the first string comes after the second alphabetically
+                    if (string.Compare(allCars[j].GetCarID(), allCars[j + 1].GetCarID()) > 0)
+                    {
+                        Car temp = allCars[j];
+                        allCars[j] = allCars[j + 1];
+                        allCars[j + 1] = temp;
+                    }
+                }
+            }
+
             // Remove duplicates by ID (keep only the first occurrence)
             List<Car> uniqueCars = new List<Car>();
             List<string> seenIds = new List<string>();
@@ -1559,24 +1574,20 @@ namespace CarRentalSystem
                 PauseScreen();
                 return;
             }
-
             // Perform deletion
             int deletedCount = 0;
             foreach (Car carToDelete in carsToDelete)
             {
-                // Remove from memory list
+                // 1. Remove from physical storage
+                fileHandler.DeleteCarFile(carToDelete.GetCarID());
+
+                // 2. Remove from memory list
                 cars.Remove(carToDelete);
                 deletedCount++;
             }
 
-            // Save updated list - this will physically delete files
+            // Save the rest of the list (to update any status changes if necessary)
             fileHandler.SaveCars(cars);
-
-            // Success message
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"\n  ✓ Successfully deleted {deletedCount} car(s) from the system!");
-            Console.WriteLine("  ✓ Changes saved permanently to files.");
-            Console.ResetColor();
 
             // Show summary if there were any issues
             if (notFoundIds.Count > 0 || rentedIds.Count > 0)
@@ -1715,4 +1726,4 @@ namespace CarRentalSystem
 
        
     } 
-} 
+} // End of MenuSystem class
